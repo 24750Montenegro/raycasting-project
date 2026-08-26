@@ -33,11 +33,11 @@ pub const SAMPLES_PER_COLUMN: u32 = 1;
 
 // ── Iluminación ──────────────────────────────────────────────────────────
 /// Luz mínima: ninguna superficie se pinta más oscura que esto.
-pub const LIGHT_AMBIENT: f32 = 0.12;
+pub const LIGHT_AMBIENT: f32 = 0.16;
 /// Intensidad de la luz que acompaña al jugador.
 pub const LIGHT_INTENSITY: f32 = 1.0;
 /// Alcance de esa luz, en celdas.
-pub const LIGHT_RANGE: f32 = 9.0;
+pub const LIGHT_RANGE: f32 = 12.0;
 /// Exponente de la caída: >1 concentra la luz cerca del jugador.
 pub const LIGHT_FALLOFF: f32 = 1.7;
 /// Brillo relativo de cada cara de las paredes.
