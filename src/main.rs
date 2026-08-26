@@ -9,6 +9,7 @@ mod textures;
 use framebuffer::Framebuffer;
 use maze::load_maze;
 use player::Player;
+use render::MinimapMode;
 use raylib::prelude::*;
 use textures::TextureManager;
 
@@ -33,21 +34,18 @@ fn main() {
         config::FLOOR_COLOR,
     );
 
-    let mut show_map = false;
+    let mut minimap = MinimapMode::Compact;
 
     while !window.window_should_close() {
         if window.is_key_pressed(KeyboardKey::KEY_M) {
-            show_map = !show_map;
+            minimap = minimap.toggled();
         }
 
         player.update(&window, &maze, config::BLOCK_SIZE);
 
         framebuffer.clear();
-        if show_map {
-            render::render_map(&mut framebuffer, &maze, &player, config::BLOCK_SIZE);
-        } else {
-            render::render_world(&mut framebuffer, &maze, &player, &textures, config::BLOCK_SIZE);
-        }
+        render::render_world(&mut framebuffer, &maze, &player, &textures, config::BLOCK_SIZE);
+        render::render_minimap(&mut framebuffer, &maze, &player, minimap, config::BLOCK_SIZE);
         framebuffer.present(&mut window, &raylib_thread);
     }
 }

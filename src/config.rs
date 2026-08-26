@@ -65,6 +65,24 @@ pub const FOG_END: f32 = 11.0;
 /// Exponente de la mezcla: >1 retrasa la niebla, <1 la adelanta.
 pub const FOG_DENSITY: f32 = 1.35;
 
+// ── Minimapa ─────────────────────────────────────────────────
+/// Lado de cada celda del minimapa compacto, en píxeles de pantalla.
+pub const MINIMAP_COMPACT_CELL: f32 = 9.0;
+/// Separación del minimapa compacto respecto de la esquina.
+pub const MINIMAP_MARGIN: f32 = 16.0;
+/// Fracción de la pantalla que ocupa el minimapa expandido (queda centrado).
+pub const MINIMAP_EXPANDED_FILL: f32 = 0.85;
+pub const MINIMAP_PADDING: f32 = 6.0;
+pub const MINIMAP_BORDER_WIDTH: f32 = 2.0;
+/// Opacidad de las paredes del minimapa sobre la vista 3D.
+pub const MINIMAP_OPACITY: f32 = 0.85;
+pub const MINIMAP_BACKGROUND: Color = Color::new(10, 10, 14, 190);
+pub const MINIMAP_BORDER_COLOR: Color = Color::new(120, 122, 140, 220);
+pub const MINIMAP_PLAYER_COLOR: Color = Color::new(235, 90, 70, 255);
+pub const MINIMAP_RAY_COLOR: Color = Color::new(255, 226, 150, 255);
+pub const MINIMAP_RAY_OPACITY: f32 = 0.30;
+pub const MINIMAP_RAYS: usize = 48;
+
 // ── Colores base ─────────────────────────────────────────────────────────
 pub const SKY_COLOR: Color = Color::new(38, 42, 58, 255);
 pub const FLOOR_COLOR: Color = Color::new(24, 22, 22, 255);

@@ -1,8 +1,8 @@
-mod map;
+mod minimap;
 mod shading;
 mod world;
 
-pub use map::render_map;
+pub use minimap::{render_minimap, MinimapMode};
 pub use world::render_world;
 
 use raylib::prelude::*;

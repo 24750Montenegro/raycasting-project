@@ -31,10 +31,6 @@ impl Framebuffer {
         }
     }
 
-    pub fn set_background_color(&mut self, color: Color) {
-        self.background_color = color;
-    }
-
     pub fn clear(&mut self) {
         let bg = [
             self.background_color.r,
