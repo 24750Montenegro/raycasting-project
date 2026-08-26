@@ -30,3 +30,30 @@ pub fn shade(color: Color, light: f32) -> Color {
         color.a,
     )
 }
+
+/// Peso de la niebla en [0, 1] para algo a `distance` celdas del jugador.
+pub fn fog_factor(distance: f32) -> f32 {
+    if !config::FOG_ENABLED {
+        return 0.0;
+    }
+    let span = (config::FOG_END - config::FOG_START).max(f32::EPSILON);
+
+    ((distance - config::FOG_START) / span)
+        .clamp(0.0, 1.0)
+        .powf(config::FOG_DENSITY)
+}
+
+pub fn apply_fog(color: Color, distance: f32) -> Color {
+    mix(color, config::FOG_COLOR, fog_factor(distance))
+}
+
+fn mix(from: Color, to: Color, t: f32) -> Color {
+    let lerp = |a: u8, b: u8| (a as f32 + (b as f32 - a as f32) * t) as u8;
+
+    Color::new(
+        lerp(from.r, to.r),
+        lerp(from.g, to.g),
+        lerp(from.b, to.b),
+        from.a,
+    )
+}

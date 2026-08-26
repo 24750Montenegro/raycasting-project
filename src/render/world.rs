@@ -52,14 +52,7 @@ pub fn render_world(
     // distancia del ojo al plano de proyección, en píxeles
     let projection = (framebuffer.width as f32 / 2.0) / (player.fov / 2.0).tan();
 
-    framebuffer.fill_rect(0, 0, width, horizon as i32, config::SKY_COLOR);
-    framebuffer.fill_rect(
-        0,
-        horizon as i32,
-        width,
-        height - horizon as i32,
-        config::FLOOR_COLOR,
-    );
+    render_background(framebuffer, horizon, projection);
 
     let samples = config::SAMPLES_PER_COLUMN.max(1);
     let mut column = vec![Accumulator::default(); height as usize];
@@ -75,8 +68,9 @@ pub fn render_world(
             // proyectar sobre el eje de la cámara corrige el ojo de pez
             let depth = (hit.distance * (angle - player.angle).cos()).max(f32::EPSILON);
             let wall_height = (block_size as f32 / depth) * projection;
-            let light = shading::wall_light(depth / block_size as f32, hit.side);
-            let color = shading::shade(cell_color(hit.impact), light);
+            let distance = depth / block_size as f32;
+            let light = shading::wall_light(distance, hit.side);
+            let color = shading::apply_fog(shading::shade(cell_color(hit.impact), light), distance);
 
             accumulate(&mut column, horizon, wall_height, |_| color);
         }
@@ -86,6 +80,26 @@ pub fn render_world(
                 framebuffer.blend_pixel(x, y as i32, color);
             }
         }
+    }
+}
+
+/// Cielo y suelo fila por fila: cada fila del plano horizontal cae a una
+/// distancia fija del jugador, asi la niebla del fondo empalma con la de las
+/// paredes en vez de cortarse contra ellas.
+fn render_background(framebuffer: &mut Framebuffer, horizon: f32, projection: f32) {
+    let width = framebuffer.width as i32;
+
+    for y in 0..framebuffer.height as i32 {
+        let to_horizon = (y as f32 + 0.5 - horizon).abs().max(0.5);
+        // el ojo va a media celda del suelo y del techo, de ahi el 0.5
+        let distance = 0.5 * projection / to_horizon;
+        let base = if (y as f32) < horizon {
+            config::SKY_COLOR
+        } else {
+            config::FLOOR_COLOR
+        };
+
+        framebuffer.fill_rect(0, y, width, 1, shading::apply_fog(base, distance));
     }
 }
 

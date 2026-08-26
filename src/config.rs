@@ -44,6 +44,16 @@ pub const LIGHT_FALLOFF: f32 = 1.7;
 pub const LIGHT_VERTICAL_FACE: f32 = 1.0;
 pub const LIGHT_HORIZONTAL_FACE: f32 = 0.62;
 
+// ── Niebla ────────────────────────────────────────────────────
+pub const FOG_ENABLED: bool = true;
+pub const FOG_COLOR: Color = Color::new(14, 13, 17, 255);
+/// Celdas a partir de las cuales la niebla empieza a notarse...
+pub const FOG_START: f32 = 1.5;
+/// ...y celdas a partir de las cuales lo tapa todo.
+pub const FOG_END: f32 = 11.0;
+/// Exponente de la mezcla: >1 retrasa la niebla, <1 la adelanta.
+pub const FOG_DENSITY: f32 = 1.35;
+
 // ── Colores base ─────────────────────────────────────────────────────────
 pub const SKY_COLOR: Color = Color::new(38, 42, 58, 255);
 pub const FLOOR_COLOR: Color = Color::new(24, 22, 22, 255);
