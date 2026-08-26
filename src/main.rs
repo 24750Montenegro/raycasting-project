@@ -1,71 +1,50 @@
+mod caster;
+mod config;
 mod framebuffer;
 mod maze;
-mod render;
 mod player;
-mod caster;
+mod render;
 
 use framebuffer::Framebuffer;
-use raylib::prelude::*;
-use maze::{load_maze, find_player_start};
+use maze::load_maze;
 use player::Player;
-use std::f32::consts::PI;
-
+use raylib::prelude::*;
 
 fn main() {
-    //tamaño de la ventana
-    let window_width = 1280;
-    let window_height = 720;
-    let block_size = 40; // tamaño de cada celda del laberinto
-    //iniciar raylib
     let (mut window, raylib_thread) = raylib::init()
-        .size(window_width, window_height)
+        .size(config::WINDOW_WIDTH, config::WINDOW_HEIGHT)
         .title("Raycaster")
         .build();
 
-    let maze = load_maze("maze.txt");
-
-    //posicion inicial del jugador
-    let (px, py) = find_player_start(&maze, block_size);
-    let mut player = Player {
-        pos: Vector2::new(px, py),
-        angle: PI/4.0,
-        fov: PI/3.0,
-    };
-
-
-    let mut framebuffer = Framebuffer::new(
-        window_width as u32, 
-        window_height as u32, 
-        Color::new(50, 50, 100, 255)
-    );
-
-    window.set_target_fps(60);
+    window.set_target_fps(config::TARGET_FPS);
     window.disable_cursor();
 
-    let mut mode = "3D";
+    let maze = load_maze(config::MAZE_FILE);
+    let mut player = Player::spawn(&maze, config::BLOCK_SIZE);
 
+    let mut framebuffer = Framebuffer::new(
+        &mut window,
+        &raylib_thread,
+        config::WINDOW_WIDTH as u32,
+        config::WINDOW_HEIGHT as u32,
+        config::FLOOR_COLOR,
+    );
+
+    let mut show_map = false;
 
     while !window.window_should_close() {
         if window.is_key_pressed(KeyboardKey::KEY_M) {
-            mode = if mode == "2D" { "3D" } else { "2D" };
+            show_map = !show_map;
         }
 
-         //movimiento del jugador
-        player::process_events(&mut player, &window, &maze, block_size);
+        player.update(&window, &maze, config::BLOCK_SIZE);
 
-        //limpiar framebuffer
         framebuffer.clear();
-
-
-        //dibujo del laberinto
-        if mode == "2D" {
-            render::render_maze(&mut framebuffer, &maze, block_size, &player);
+        if show_map {
+            render::render_map(&mut framebuffer, &maze, &player, config::BLOCK_SIZE);
         } else {
-            render::render_world(&mut framebuffer, &maze, block_size, &player);
+            render::render_world(&mut framebuffer, &maze, &player, config::BLOCK_SIZE);
         }
-
-
-        //mostrar
-        framebuffer.swap_buffers(&mut window, &raylib_thread);
+        framebuffer.present(&mut window, &raylib_thread);
     }
 }

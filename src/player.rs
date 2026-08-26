@@ -1,7 +1,7 @@
-use raylib::prelude:: *;
+use crate::config;
+use crate::maze::{find_player_start, is_wall, Maze};
+use raylib::prelude::*;
 use std::f32::consts::PI;
-use crate::maze::{is_wall, Maze};
-
 
 pub struct Player {
     pub pos: Vector2,
@@ -9,84 +9,82 @@ pub struct Player {
     pub fov: f32,
 }
 
-const MOVE_SPEED: f32 = 200.0;
-const ROTATION_SPEED: f32 = PI/1.5; // radianes por segundo
-const MOUSE_SENSITIVITY: f32 = 0.002; // sensibilidad del ratón
-const PLAYER_RADIUS: f32 = 10.0; // radio del jugador
-
-pub fn process_events(
-    player: &mut Player,
-    rl: &RaylibHandle,
-    maze: &Maze,
-    block_size: usize,
-){
-    //tiempo del frame anterior
-    let dt = rl.get_frame_time();
-
-
-    // MOVIMIENTO
-
-    let mut forward = 0.0f32;
-    let mut strafe = 0.0f32;
-
-    // movimiento a la izquierda
-    if rl.is_key_down(KeyboardKey::KEY_LEFT) || rl.is_key_down(KeyboardKey::KEY_A) {
-        strafe -= 1.0;
+impl Player {
+    pub fn spawn(maze: &Maze, block_size: usize) -> Self {
+        Player {
+            pos: find_player_start(maze, block_size),
+            angle: PI / 4.0,
+            fov: config::FOV,
+        }
     }
 
-    // movimiento a la derecha
-    if rl.is_key_down(KeyboardKey::KEY_RIGHT) || rl.is_key_down(KeyboardKey::KEY_D) {
-        strafe += 1.0;
+    /// Vector unitario hacia donde mira el jugador.
+    pub fn direction(&self) -> Vector2 {
+        Vector2::new(self.angle.cos(), self.angle.sin())
     }
 
-    // movimiento hacia adelante
-    if rl.is_key_down(KeyboardKey::KEY_UP) || rl.is_key_down(KeyboardKey::KEY_W) {
-        forward += 1.0;
+    pub fn update(&mut self, rl: &RaylibHandle, maze: &Maze, block_size: usize) {
+        let dt = rl.get_frame_time();
+
+        self.rotate(rl, dt);
+        self.walk(rl, maze, block_size, dt);
     }
 
-    // movimiento hacia atrás
-    if rl.is_key_down(KeyboardKey::KEY_DOWN) || rl.is_key_down(KeyboardKey::KEY_S) {
-        forward -= 1.0;
+    fn rotate(&mut self, rl: &RaylibHandle, dt: f32) {
+        let mut turn = rl.get_mouse_delta().x * config::MOUSE_SENSITIVITY;
+
+        if rl.is_key_down(KeyboardKey::KEY_LEFT) {
+            turn -= config::ROTATION_SPEED * dt;
+        }
+        if rl.is_key_down(KeyboardKey::KEY_RIGHT) {
+            turn += config::ROTATION_SPEED * dt;
+        }
+
+        // rem_euclid evita que el ángulo crezca sin límite
+        self.angle = (self.angle + turn).rem_euclid(2.0 * PI);
     }
 
-    // Angulo de la camara con el mouse
+    fn walk(&mut self, rl: &RaylibHandle, maze: &Maze, block_size: usize, dt: f32) {
+        let mut forward = 0.0f32;
+        let mut strafe = 0.0f32;
 
-    let mouse_delta = rl.get_mouse_delta();
-    player.angle += mouse_delta.x * MOUSE_SENSITIVITY;
+        if rl.is_key_down(KeyboardKey::KEY_W) {
+            forward += 1.0;
+        }
+        if rl.is_key_down(KeyboardKey::KEY_S) {
+            forward -= 1.0;
+        }
+        if rl.is_key_down(KeyboardKey::KEY_A) {
+            strafe -= 1.0;
+        }
+        if rl.is_key_down(KeyboardKey::KEY_D) {
+            strafe += 1.0;
+        }
 
-    let two_pi = 2.0 * PI;
-    player.angle = player.angle.rem_euclid(two_pi); // para evitar infinito crecimiento del angulo
+        if forward == 0.0 && strafe == 0.0 {
+            return;
+        }
 
-    if forward == 0.0 && strafe == 0.0 {
-        return; // no hay movimiento
+        let speed = config::MOVE_SPEED * dt;
+        let (sin, cos) = self.angle.sin_cos();
+        let dx = (cos * forward - sin * strafe) * speed;
+        let dy = (sin * forward + cos * strafe) * speed;
+
+        // ejes por separado para poder deslizarse a lo largo de una pared
+        if !self.collides(maze, self.pos.x + dx, self.pos.y, block_size) {
+            self.pos.x += dx;
+        }
+        if !self.collides(maze, self.pos.x, self.pos.y + dy, block_size) {
+            self.pos.y += dy;
+        }
     }
 
-    let speed = MOVE_SPEED * dt;
+    fn collides(&self, maze: &Maze, x: f32, y: f32, block_size: usize) -> bool {
+        let r = config::PLAYER_RADIUS;
 
-    //dirección del movimiento
-    let dx = player.angle.cos() * forward * speed - player.angle.sin() * strafe;
-    let dy = player.angle.sin() * forward * speed + player.angle.cos() * strafe;
-
-    try_move(player, maze, block_size, dx, dy);
-}
-
-fn try_move(player: &mut Player, maze: &Maze, block_size: usize, dx: f32, dy: f32) {
-    let new_x = player.pos.x + dx;
-    let new_y = player.pos.y + dy;
-
-    if !collides(maze, new_x, player.pos.y, block_size) {
-        player.pos.x = new_x;
+        is_wall(maze, x - r, y - r, block_size)
+            || is_wall(maze, x + r, y - r, block_size)
+            || is_wall(maze, x - r, y + r, block_size)
+            || is_wall(maze, x + r, y + r, block_size)
     }
-    if !collides(maze, player.pos.x, new_y, block_size) {
-        player.pos.y = new_y;
-    }
-}
-
-fn collides(maze: &Maze, x: f32, y: f32, block_size: usize) -> bool {
-    let r = PLAYER_RADIUS;
-
-    is_wall(maze, x-r, y-r, block_size) ||
-    is_wall(maze, x+r, y-r, block_size) ||
-    is_wall(maze, x-r, y+r, block_size) ||
-    is_wall(maze, x+r, y+r, block_size)
 }

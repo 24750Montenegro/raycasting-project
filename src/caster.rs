@@ -1,103 +1,77 @@
-use raylib::prelude::*;
-use crate::framebuffer::Framebuffer;
-use crate::maze::{Maze, is_solid};
+use crate::config;
+use crate::maze::{solid_at, Maze, OUT_OF_BOUNDS};
 use crate::player::Player;
+use raylib::prelude::*;
 
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Side {
-    Vertical,
-    Horizontal,
+    Vertical,   // cara perpendicular al eje X
+    Horizontal, // cara perpendicular al eje Y
 }
 
 pub struct Intersect {
+    /// Distancia euclidiana desde el jugador, en píxeles del mundo.
     pub distance: f32,
     pub impact: char,
     pub side: Side,
-    pub hit_x: f32,
-    pub hit_y: f32,
+    pub hit: Vector2,
 }
 
-pub fn cast_ray(
-    framebuffer: &mut Framebuffer,
-    maze: &Maze,
-    player: &Player,
-    a: f32,
-    block_size: usize,
-    draw_line: bool, // para ver los rayos en 2D
-) -> Intersect {
+pub fn cast_ray(maze: &Maze, player: &Player, angle: f32, block_size: usize) -> Intersect {
+    let direction = Vector2::new(angle.cos(), angle.sin());
+    let block = block_size as f32;
+    let step = config::RAY_STEP * block;
+    let max_distance = config::RAY_MAX_DEPTH * block;
+
     let mut prev_i = player.pos.x.max(0.0) as usize / block_size;
     let mut prev_j = player.pos.y.max(0.0) as usize / block_size;
-    let mut d = 0.0f32;
-    framebuffer.set_current_color(Color::WHITE);
+    let mut distance = 0.0f32;
 
-    loop {
-        let x = player.pos.x + d * a.cos();
-        let y = player.pos.y + d * a.sin();
+    while distance < max_distance {
+        distance += step;
+        let point = player.pos + direction * distance;
 
-        // Verificar si el rayo ha salido del laberinto
-        if x < 0.0 || y < 0.0 {
-            return Intersect { distance: d.max(0.0001), impact: '#', side: Side::Vertical, hit_x: x, hit_y: y }; // fuera del laberinto
+        if let Some(cell) = solid_at(maze, point, block_size) {
+            let i = point.x.max(0.0) as usize / block_size;
+            let j = point.y.max(0.0) as usize / block_size;
+            let side = pick_side(i != prev_i, j != prev_j, point / block, direction);
+
+            return Intersect {
+                distance: distance.max(f32::EPSILON),
+                impact: cell,
+                side,
+                hit: point,
+            };
         }
 
-        let i = x as usize / block_size; // columna
-        let j = y as usize / block_size; // fila
+        prev_i = point.x.max(0.0) as usize / block_size;
+        prev_j = point.y.max(0.0) as usize / block_size;
+    }
 
-        let cell = maze
-            .get(j)
-            .and_then(|row| row.get(i))
-            .copied();
-
-        match cell {
-            Some(c) if is_solid(c) => {
-                let side = pick_side(
-                    i != prev_i,
-                    j != prev_j,
-                    x / block_size as f32,
-                    y / block_size as f32,
-                    a.cos(),
-                    a.sin(),
-                );
-                return Intersect {
-                    distance: d.max(0.0001),
-                    impact: c,
-                    side,
-                    hit_x: x,
-                    hit_y: y,
-                };
-            }
-
-            None => {
-                return Intersect {
-                    distance: d.max(0.0001),
-                    impact: '#',
-                    side: Side::Vertical,
-                    hit_x: x,
-                    hit_y: y,
-                };
-            }
-
-            _ => {}
-        }
-
-        if draw_line {
-            framebuffer.set_pixel(x as u32, y as u32);
-        }
-
-        prev_i = i;
-        prev_j = j;
-        d += 0.05;
+    Intersect {
+        distance: max_distance,
+        impact: OUT_OF_BOUNDS,
+        side: Side::Vertical,
+        hit: player.pos + direction * max_distance,
     }
 }
 
-fn pick_side(cambio_i: bool, cambio_j: bool, cx: f32, cy: f32, cos_a: f32, sin_a: f32) -> Side {
-    match (cambio_i, cambio_j) {
+fn pick_side(crossed_i: bool, crossed_j: bool, cell_pos: Vector2, direction: Vector2) -> Side {
+    match (crossed_i, crossed_j) {
         (true, false) => Side::Vertical,
         (false, true) => Side::Horizontal,
         _ => {
-            let fx = cx - cx.floor();   // qué tan adentro de la celda vamos, en X (0.0 .. 1.0)
-            let fy = cy - cy.floor();
-            let past_x = if cos_a > 0.0 { fx } else { 1.0 - fx };
-            let past_y = if sin_a > 0.0 { fy } else { 1.0 - fy };
-            if past_x < past_y { Side::Vertical } else { Side::Horizontal }
+            // qué tan adentro de la celda vamos en cada eje (0.0 .. 1.0)
+            let fx = cell_pos.x.rem_euclid(1.0);
+            let fy = cell_pos.y.rem_euclid(1.0);
+            let past_x = if direction.x > 0.0 { fx } else { 1.0 - fx };
+            let past_y = if direction.y > 0.0 { fy } else { 1.0 - fy };
+
+            if past_x < past_y {
+                Side::Vertical
+            } else {
+                Side::Horizontal
+            }
         }
     }
 }
