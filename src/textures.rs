@@ -127,27 +127,35 @@ impl TextureColumn<'_> {
     }
 }
 
+/// Una textura de pared con su propio mosaico.
+struct Wall {
+    texture: Texture,
+    tiles: f32,
+}
+
 /// Asocia cada carácter del laberinto con su textura, según config::WALL_TEXTURES.
 pub struct TextureManager {
-    walls: HashMap<char, Texture>,
+    walls: HashMap<char, Wall>,
 }
 
 impl TextureManager {
     pub fn load() -> Self {
         let walls = config::WALL_TEXTURES
             .iter()
-            .filter_map(|&(cell, path)| Texture::load(path).map(|texture| (cell, texture)))
+            .filter_map(|&(cell, path, tiles)| {
+                Texture::load(path).map(|texture| (cell, Wall { texture, tiles }))
+            })
             .collect();
 
         TextureManager { walls }
     }
 
-    /// Franja de textura de la pared `cell` en la coordenada `u` de su cara. La
-    /// textura se repite `TEXTURE_TILES_PER_BLOCK` veces por celda en cada eje.
+    /// Franja de textura de la pared `cell` en la coordenada `u` de su cara,
+    /// repetida las veces que pida su entrada en WALL_TEXTURES.
     pub fn wall_column(&self, cell: char, u: f32) -> Option<TextureColumn<'_>> {
         self.walls
             .get(&cell)
-            .map(|texture| texture.column(u, config::TEXTURE_TILES_PER_BLOCK))
+            .map(|wall| wall.texture.column(u, wall.tiles))
     }
 }
 

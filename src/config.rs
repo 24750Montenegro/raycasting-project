@@ -45,14 +45,14 @@ pub const LIGHT_VERTICAL_FACE: f32 = 1.0;
 pub const LIGHT_HORIZONTAL_FACE: f32 = 0.62;
 
 // ── Texturas ─────────────────────────────────────────────────────────────
-/// Textura de cada carácter del laberinto. Los que no aparezcan se pintan con
-/// el color plano de render::cell_color.
-pub const WALL_TEXTURES: &[(char, &str)] = &[
-    ('-', "assets/netherbrick.webp"),
-    ('+', "assets/nether_rock.jpg"),
+/// Textura de cada carácter del laberinto, con cuántas veces se repite dentro
+/// de una celda en cada eje: 1.0 deja la imagen entera cubriendo la cara, 4.0
+/// la mosaica 4x4. Los caracteres que no aparezcan se pintan con el color plano
+/// de render::cell_color.
+pub const WALL_TEXTURES: &[(char, &str, f32)] = &[
+    ('-', "assets/netherbrick.webp", 4.0),
+    ('+', "assets/netherbrick.jpg", 1.0),
 ];
-/// Cuántas veces se repite la textura dentro de una celda, en cada eje.
-pub const TEXTURE_TILES_PER_BLOCK: f32 = 4.0;
 /// Lado máximo al que se reescalan las texturas al cargarlas. Bajarlo también
 /// acelera el render: cuanto más chica la textura, mejor cae en caché.
 pub const TEXTURE_MAX_SIZE: u32 = 128;
@@ -66,7 +66,7 @@ pub const FOG_COLOR: Color = Color::new(14, 13, 17, 255);
 /// Celdas a partir de las cuales la niebla empieza a notarse...
 pub const FOG_START: f32 = 1.5;
 /// ...y celdas a partir de las cuales lo tapa todo.
-pub const FOG_END: f32 = 11.0;
+pub const FOG_END: f32 = 17.0;
 /// Exponente de la mezcla: >1 retrasa la niebla, <1 la adelanta.
 pub const FOG_DENSITY: f32 = 1.35;
 
@@ -89,5 +89,5 @@ pub const MINIMAP_RAY_OPACITY: f32 = 0.30;
 pub const MINIMAP_RAYS: usize = 48;
 
 // ── Colores base ─────────────────────────────────────────────────────────
-pub const SKY_COLOR: Color = Color::new(38, 42, 58, 255);
+pub const SKY_COLOR: Color = Color::new(13, 10, 14, 255);
 pub const FLOOR_COLOR: Color = Color::new(24, 22, 22, 255);
