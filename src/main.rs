@@ -15,7 +15,7 @@ fn main() {
     //tamaño de la ventana
     let window_width = 1280;
     let window_height = 720;
-    let block_size = 50; // tamaño de cada celda del laberinto
+    let block_size = 40; // tamaño de cada celda del laberinto
     //iniciar raylib
     let (mut window, raylib_thread) = raylib::init()
         .size(window_width, window_height)

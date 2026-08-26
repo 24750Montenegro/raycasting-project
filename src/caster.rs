@@ -84,7 +84,7 @@ pub fn cast_ray(
 
         prev_i = i;
         prev_j = j;
-        d += 1.0;
+        d += 0.05;
     }
 }
 
