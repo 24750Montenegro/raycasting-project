@@ -9,7 +9,7 @@ pub struct Player {
     pub fov: f32,
 }
 
-const MOVE_SPEED: f32 = 60.0;
+const MOVE_SPEED: f32 = 200.0;
 const ROTATION_SPEED: f32 = PI/1.5; // radianes por segundo
 const MOUSE_SENSITIVITY: f32 = 0.002; // sensibilidad del ratón
 const PLAYER_RADIUS: f32 = 10.0; // radio del jugador

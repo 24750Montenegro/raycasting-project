@@ -2,6 +2,7 @@ mod framebuffer;
 mod maze;
 mod render;
 mod player;
+mod caster;
 
 use framebuffer::Framebuffer;
 use raylib::prelude::*;
@@ -13,7 +14,7 @@ use std::f32::consts::PI;
 fn main() {
     //tamaño de la ventana
     let window_width = 1450;
-    let window_height = 350;
+    let window_height = 800;
     let block_size = 50; // tamaño de cada celda del laberinto
     //iniciar raylib
     let (mut window, raylib_thread) = raylib::init()
@@ -41,7 +42,7 @@ fn main() {
     window.set_target_fps(60);
     window.disable_cursor();
 
-    let mut mode = "2D";
+    let mut mode = "3D";
 
 
     while !window.window_should_close() {
@@ -57,7 +58,11 @@ fn main() {
 
 
         //dibujo del laberinto
-        render::render_maze(&mut framebuffer, &maze, block_size, &player);
+        if mode == "2D" {
+            render::render_maze(&mut framebuffer, &maze, block_size, &player);
+        } else {
+            render::render_world(&mut framebuffer, &maze, block_size, &player);
+        }
 
 
         //mostrar

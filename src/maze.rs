@@ -27,6 +27,10 @@ pub fn load_maze(filename: &str) -> Maze {
     maze
 }
 
+pub fn is_solid(c: char) -> bool {
+    !matches!(c, ' ' | 'p')
+}
+
 pub fn is_wall(maze: &Maze, x: f32, y: f32, block_size: usize) -> bool {
     if x < 0.0 || y < 0.0 {
         return true;
@@ -36,7 +40,7 @@ pub fn is_wall(maze: &Maze, x: f32, y: f32, block_size: usize) -> bool {
     let j = y as usize /block_size; //fila
 
     match maze.get(j).and_then(|row| row.get(i)) {
-        Some(&cell) => cell != ' ' && cell != 'p',
+        Some(&cell) => is_solid(cell),
         None => true, // fuera de los límites del laberinto
     }
 }
