@@ -64,3 +64,43 @@ pub fn render_maze(framebuffer: &mut Framebuffer, maze: &Maze, block_size: usize
         cast_ray(framebuffer, maze, player, ray_angle, block_size, true);
     }
 }
+
+pub fn render_world(
+    framebuffer: &mut Framebuffer,
+    maze: &Maze,
+    block_size: usize,
+    player: &Player,
+){
+    let width = framebuffer.width;
+    let height = framebuffer.height;
+    let hw = width as f32 / 2.0; // mitad del ancho
+    let hh = height as f32 / 2.0; // mitad del alto
+
+    let dpp = hw / (player.fov / 2.0).tan(); // distancia a la pared en pixeles
+
+    let half = (height / 2) as i32;
+    framebuffer.fill_rect(0, 0, width as i32, half, Color::SKYBLUE); // cielo
+    framebuffer.fill_rect(0, half, width as i32, half, Color::new(18, 19, 20, 255)); // suelo
+
+    for i in 0..width {
+        let current_ray = i as f32 / width as f32;
+        let ray_angle = player.angle - player.fov / 2.0 + current_ray * player.fov;
+        let intersect = cast_ray(framebuffer, maze, player, ray_angle, block_size, false);
+
+        // Corregir efecto de distorsión
+        let corrected_distance = intersect.distance * (player.angle - ray_angle).cos();
+
+        // Altura de la pared en pixeles
+        let wall_height = (dpp / corrected_distance) as i32;
+
+        // Dibujar pared
+        let wall_top = hh as i32 - wall_height / 2;
+        let wall_bottom = hh as i32 + wall_height / 2;
+
+        for y in wall_top..wall_bottom {
+            if y >= 0 && y < height as i32 {
+                framebuffer.set_pixel_color(i as u32, y as u32, cell_color(intersect.impact));
+            }
+        }
+    }
+}

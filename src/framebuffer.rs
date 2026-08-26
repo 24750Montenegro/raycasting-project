@@ -66,4 +66,8 @@ impl Framebuffer {
             
         }
     }
+
+    pub fn fill_rect(&mut self, x: i32, y: i32, width: i32, height: i32, color: Color) {
+        self.color_buffer.draw_rectangle(x, y, width, height, color);
+    }
 }
