@@ -47,7 +47,7 @@ pub fn apply_fog(color: Color, distance: f32) -> Color {
     mix(color, config::FOG_COLOR, fog_factor(distance))
 }
 
-fn mix(from: Color, to: Color, t: f32) -> Color {
+pub fn mix(from: Color, to: Color, t: f32) -> Color {
     let lerp = |a: u8, b: u8| (a as f32 + (b as f32 - a as f32) * t) as u8;
 
     Color::new(

@@ -4,11 +4,13 @@ mod framebuffer;
 mod maze;
 mod player;
 mod render;
+mod textures;
 
 use framebuffer::Framebuffer;
 use maze::load_maze;
 use player::Player;
 use raylib::prelude::*;
+use textures::TextureManager;
 
 fn main() {
     let (mut window, raylib_thread) = raylib::init()
@@ -21,6 +23,7 @@ fn main() {
 
     let maze = load_maze(config::MAZE_FILE);
     let mut player = Player::spawn(&maze, config::BLOCK_SIZE);
+    let textures = TextureManager::load();
 
     let mut framebuffer = Framebuffer::new(
         &mut window,
@@ -43,7 +46,7 @@ fn main() {
         if show_map {
             render::render_map(&mut framebuffer, &maze, &player, config::BLOCK_SIZE);
         } else {
-            render::render_world(&mut framebuffer, &maze, &player, config::BLOCK_SIZE);
+            render::render_world(&mut framebuffer, &maze, &player, &textures, config::BLOCK_SIZE);
         }
         framebuffer.present(&mut window, &raylib_thread);
     }

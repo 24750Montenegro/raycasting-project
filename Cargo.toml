@@ -8,4 +8,5 @@ opt-level = 3
 debug = false
 
 [dependencies]
+image = { version = "0.25.10", default-features = false, features = ["webp", "png", "jpeg"] }
 raylib = "5.5.1"

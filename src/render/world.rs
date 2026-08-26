@@ -4,6 +4,7 @@ use crate::config;
 use crate::framebuffer::Framebuffer;
 use crate::maze::Maze;
 use crate::player::Player;
+use crate::textures::TextureManager;
 use raylib::prelude::*;
 
 /// Color acumulado de una fila de la columna junto con la cobertura que le
@@ -44,6 +45,7 @@ pub fn render_world(
     framebuffer: &mut Framebuffer,
     maze: &Maze,
     player: &Player,
+    textures: &TextureManager,
     block_size: usize,
 ) {
     let width = framebuffer.width as i32;
@@ -70,9 +72,15 @@ pub fn render_world(
             let wall_height = (block_size as f32 / depth) * projection;
             let distance = depth / block_size as f32;
             let light = shading::wall_light(distance, hit.side);
-            let color = shading::apply_fog(shading::shade(cell_color(hit.impact), light), distance);
+            let fog = shading::fog_factor(distance);
 
-            accumulate(&mut column, horizon, wall_height, |_| color);
+            accumulate(&mut column, horizon, wall_height, |v| {
+                let base = textures
+                    .wall(hit.impact, hit.tex_u, v)
+                    .unwrap_or_else(|| cell_color(hit.impact));
+
+                shading::mix(shading::shade(base, light), config::FOG_COLOR, fog)
+            });
         }
 
         for (y, accumulator) in column.iter().enumerate() {
