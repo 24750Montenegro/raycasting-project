@@ -2,6 +2,7 @@ mod framebuffer;
 mod maze;
 mod render;
 mod player;
+mod caster;
 
 use framebuffer::Framebuffer;
 use raylib::prelude::*;

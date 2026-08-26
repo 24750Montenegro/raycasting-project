@@ -2,6 +2,7 @@ use raylib::prelude::*;
 use crate::framebuffer::Framebuffer;
 use crate::maze::Maze;
 use crate::player::Player;
+use crate::caster::cast_ray;
 
 //llenar celdas
 fn cell_color(cell: char) -> Color {
@@ -11,7 +12,7 @@ fn cell_color(cell: char) -> Color {
         '|' => Color::GRAY,
         'g' => Color::RED,
         '#' => Color::BLACK,
-        _ => Color::WHITE,   
+        _ => Color::new(18, 19, 20, 255),   
     }
 }
 
@@ -53,5 +54,13 @@ pub fn render_maze(framebuffer: &mut Framebuffer, maze: &Maze, block_size: usize
                 framebuffer.set_pixel(x as u32, y as u32);
             }
         }
+    }
+
+    // Dibujar rayos
+    let num_rays = 30;
+    for i in 0..num_rays {
+        let current_ray = i as f32 / num_rays as f32;
+        let ray_angle = player.angle - player.fov / 2.0 + current_ray * player.fov;
+        cast_ray(framebuffer, maze, player, ray_angle, block_size, true);
     }
 }
