@@ -24,6 +24,12 @@ pub const PLAYER_RADIUS: f32 = 10.0;
 pub const RAY_STEP: f32 = 0.2;
 /// Distancia máxima de trazado, en celdas.
 pub const RAY_MAX_DEPTH: f32 = 64.0;
+/// Bisecciones para afinar el impacto. Cada una parte a la mitad el error del
+/// paso: con 12 el impacto queda dentro de ~0.002 px del plano de la pared.
+pub const RAY_REFINE_STEPS: u32 = 12;
+/// Rayos por columna de pantalla. Más de uno suaviza los bordes verticales a
+/// costa de trazar esa cantidad de rayos por píxel de ancho.
+pub const SAMPLES_PER_COLUMN: u32 = 2;
 
 // ── Colores base ─────────────────────────────────────────────────────────
 pub const SKY_COLOR: Color = Color::new(38, 42, 58, 255);
