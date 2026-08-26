@@ -50,14 +50,18 @@ fn main() {
             minimap = minimap.toggled();
         }
 
-        player.update(&window, &maze, config::BLOCK_SIZE);
-        health.tick(dt);
-        enemies.update(&maze, player.pos, &mut health, config::BLOCK_SIZE, dt);
-
+        // sin vida el mundo queda congelado: se sigue dibujando la ultima
+        // escena, pero ya nada se mueve hasta reiniciar
         if health.is_empty() {
-            player = Player::spawn(&maze, config::BLOCK_SIZE);
-            enemies.reset();
-            health = Health::full();
+            if window.is_key_pressed(KeyboardKey::KEY_R) {
+                player = Player::spawn(&maze, config::BLOCK_SIZE);
+                enemies.reset();
+                health = Health::full();
+            }
+        } else {
+            player.update(&window, &maze, config::BLOCK_SIZE);
+            health.tick(dt);
+            enemies.update(&maze, player.pos, &mut health, config::BLOCK_SIZE, dt);
         }
 
         render::render_world(
@@ -85,6 +89,10 @@ fn main() {
             config::BLOCK_SIZE,
         );
         render::render_health(&mut framebuffer, &health, &textures);
+
+        if health.is_empty() {
+            render::render_game_over(&mut framebuffer);
+        }
 
         framebuffer.present(&mut window, &raylib_thread);
     }

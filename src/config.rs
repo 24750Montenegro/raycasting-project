@@ -101,6 +101,39 @@ pub const HEART_HIT_SCALE: f32 = 0.35;
 /// Segundos de invulnerabilidad después de cada golpe.
 pub const DAMAGE_COOLDOWN: f32 = 1.0;
 
+// ── Game over ──────────────────────────────────────────────
+/// Cartel que aparece al quedarse sin vida. Cada carácter distinto de espacio
+/// se pinta como un bloque, así que el dibujo se edita acá sin tocar el render.
+pub const GAME_OVER_ART: &[&str] = &[
+    "####  ##  #   # ####",
+    "#    #  # ## ## #   ",
+    "# ## #### # # # ### ",
+    "#  # #  # #   # #   ",
+    "#### #  # #   # ####",
+    "                    ",
+    " ##  #   # #### ### ",
+    "#  # #   # #    #  #",
+    "#  # #   # ###  ### ",
+    "#  #  # #  #    # # ",
+    " ##    #   #### #  #",
+];
+pub const GAME_OVER_HINT: &[&str] = &[
+    "###  #  # #     ###  ##     ### ",
+    "#  # #  # #    #    #  #    #  #",
+    "###  #  # #     ##  ####    ### ",
+    "#    #  # #       # #  #    # # ",
+    "#     ##  #### ###  #  #    #  #",
+];
+/// Fracción del ancho de la pantalla que ocupan el cartel y su leyenda.
+pub const GAME_OVER_FILL: f32 = 0.62;
+pub const GAME_OVER_HINT_FILL: f32 = 0.3;
+/// Separación entre el cartel y la leyenda, en fracción del alto.
+pub const GAME_OVER_GAP: f32 = 0.07;
+pub const GAME_OVER_COLOR: Color = Color::new(214, 52, 46, 255);
+pub const GAME_OVER_HINT_COLOR: Color = Color::new(168, 164, 172, 255);
+/// Velo que se pinta encima de la escena congelada.
+pub const GAME_OVER_VEIL: Color = Color::new(10, 8, 12, 200);
+
 // ── Niebla ───────────────────────────────────────────────────────────────
 pub const FOG_ENABLED: bool = true;
 pub const FOG_COLOR: Color = Color::new(14, 13, 17, 255);

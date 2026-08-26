@@ -1,9 +1,11 @@
+mod game_over;
 mod hud;
 mod minimap;
 mod shading;
 mod sprites;
 mod world;
 
+pub use game_over::render_game_over;
 pub use hud::render_health;
 pub use minimap::{render_minimap, MinimapMode};
 pub use sprites::render_enemies;
