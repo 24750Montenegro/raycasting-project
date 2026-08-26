@@ -1,4 +1,5 @@
 mod map;
+mod shading;
 mod world;
 
 pub use map::render_map;

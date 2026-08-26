@@ -31,6 +31,19 @@ pub const RAY_REFINE_STEPS: u32 = 12;
 /// costa de trazar esa cantidad de rayos por píxel de ancho.
 pub const SAMPLES_PER_COLUMN: u32 = 2;
 
+// ── Iluminación ─────────────────────────────────────────────
+/// Luz mínima: ninguna superficie se pinta más oscura que esto.
+pub const LIGHT_AMBIENT: f32 = 0.12;
+/// Intensidad de la luz que acompaña al jugador.
+pub const LIGHT_INTENSITY: f32 = 1.0;
+/// Alcance de esa luz, en celdas.
+pub const LIGHT_RANGE: f32 = 9.0;
+/// Exponente de la caída: >1 concentra la luz cerca del jugador.
+pub const LIGHT_FALLOFF: f32 = 1.7;
+/// Brillo relativo de cada cara de las paredes.
+pub const LIGHT_VERTICAL_FACE: f32 = 1.0;
+pub const LIGHT_HORIZONTAL_FACE: f32 = 0.62;
+
 // ── Colores base ─────────────────────────────────────────────────────────
 pub const SKY_COLOR: Color = Color::new(38, 42, 58, 255);
 pub const FLOOR_COLOR: Color = Color::new(24, 22, 22, 255);

@@ -1,4 +1,4 @@
-use super::cell_color;
+use super::{cell_color, shading};
 use crate::caster::cast_ray;
 use crate::config;
 use crate::framebuffer::Framebuffer;
@@ -75,7 +75,8 @@ pub fn render_world(
             // proyectar sobre el eje de la cámara corrige el ojo de pez
             let depth = (hit.distance * (angle - player.angle).cos()).max(f32::EPSILON);
             let wall_height = (block_size as f32 / depth) * projection;
-            let color = cell_color(hit.impact);
+            let light = shading::wall_light(depth / block_size as f32, hit.side);
+            let color = shading::shade(cell_color(hit.impact), light);
 
             accumulate(&mut column, horizon, wall_height, |_| color);
         }
