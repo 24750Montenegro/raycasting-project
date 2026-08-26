@@ -47,7 +47,10 @@ pub const LIGHT_HORIZONTAL_FACE: f32 = 0.62;
 // ── Texturas ─────────────────────────────────────────────────────────────
 /// Textura de cada carácter del laberinto. Los que no aparezcan se pintan con
 /// el color plano de render::cell_color.
-pub const WALL_TEXTURES: &[(char, &str)] = &[('-', "assets/netherbrick.webp")];
+pub const WALL_TEXTURES: &[(char, &str)] = &[
+    ('-', "assets/netherbrick.webp"),
+    ('+', "assets/nether_rock.jpg"),
+];
 /// Cuántas veces se repite la textura dentro de una celda, en cada eje.
 pub const TEXTURE_TILES_PER_BLOCK: f32 = 4.0;
 /// Lado máximo al que se reescalan las texturas al cargarlas. Bajarlo también
