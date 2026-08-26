@@ -2,15 +2,23 @@ use crate::caster::Side;
 use crate::config;
 use raylib::prelude::*;
 
-/// Factor de luz en [0, 1] para una pared a `distance` celdas del jugador.
-pub fn wall_light(distance: f32, side: Side) -> f32 {
+/// Cuanta luz llega a `distance` celdas del jugador, sin mirar la superficie.
+fn reach(distance: f32) -> f32 {
     let falloff = (1.0 - distance / config::LIGHT_RANGE)
         .clamp(0.0, 1.0)
         .powf(config::LIGHT_FALLOFF);
-    let lit = config::LIGHT_AMBIENT
-        + (1.0 - config::LIGHT_AMBIENT) * falloff * config::LIGHT_INTENSITY;
 
-    (lit * face_light(side)).clamp(0.0, 1.0)
+    config::LIGHT_AMBIENT + (1.0 - config::LIGHT_AMBIENT) * falloff * config::LIGHT_INTENSITY
+}
+
+/// Factor de luz en [0, 1] para una pared a `distance` celdas del jugador.
+pub fn wall_light(distance: f32, side: Side) -> f32 {
+    (reach(distance) * face_light(side)).clamp(0.0, 1.0)
+}
+
+/// Igual, pero sin factor de cara: un billboard siempre mira a la camara.
+pub fn sprite_light(distance: f32) -> f32 {
+    reach(distance).clamp(0.0, 1.0)
 }
 
 /// Las caras horizontales se oscurecen a propósito: esa diferencia constante es

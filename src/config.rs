@@ -60,6 +60,47 @@ pub const TEXTURE_MAX_SIZE: u32 = 128;
 /// duplica los cuadros por segundo: son 4 lecturas de textura por píxel.
 pub const TEXTURE_BILINEAR: bool = true;
 
+// ── Enemigos ─────────────────────────────────────────────────────────────
+/// Enemigos: carácter en el laberinto -> textura del sprite. Igual que la del
+/// jugador, estas celdas son piso: el enemigo aparece ahí y la celda queda
+/// libre. Sin textura (None) se dibujan con ENEMY_COLOR.
+pub const ENEMY_TEXTURES: &[(char, Option<&str>)] = &[('e', None)];
+pub const ENEMY_COLOR: Color = Color::new(196, 38, 38, 255);
+/// Velocidad con la que persiguen, en píxeles del mundo por segundo.
+pub const ENEMY_SPEED: f32 = 85.0;
+/// Radio del enemigo, para chocar con las paredes y con el jugador.
+pub const ENEMY_RADIUS: f32 = 12.0;
+/// Alto del sprite como fracción de una celda.
+pub const ENEMY_SIZE: f32 = 0.7;
+/// Lado máximo al que se reescalan los sprites y las hojas al cargarlos.
+pub const SPRITE_MAX_SIZE: u32 = 128;
+/// Alfa por debajo del cual un píxel de sprite se considera vacío.
+pub const SPRITE_ALPHA_CUTOFF: u8 = 8;
+/// Distancia mínima a la cámara para dibujar un sprite, en píxeles del mundo.
+/// Más cerca que esto el tamaño se dispara y no queda nada útil en pantalla.
+pub const SPRITE_NEAR_PLANE: f32 = 6.0;
+
+// ── Vida ─────────────────────────────────────────────────────────────────
+/// Corazones del HUD. Cada uno aguanta dos golpes.
+pub const HEART_SLOTS: u32 = 5;
+/// Hoja de corazones y el orden de sus cuadros dentro de la imagen.
+pub const HEART_SHEET: &str = "assets/hearts.png";
+pub const HEART_FRAMES: usize = 3;
+pub const HEART_FRAME_FULL: usize = 0;
+pub const HEART_FRAME_EMPTY: usize = 1;
+pub const HEART_FRAME_HALF: usize = 2;
+/// Lado de cada corazón en pantalla, separación entre ellos y margen desde la
+/// esquina inferior izquierda.
+pub const HEART_SIZE: f32 = 44.0;
+pub const HEART_SPACING: f32 = 8.0;
+pub const HEART_MARGIN: f32 = 20.0;
+/// Segundos que dura el latido de los corazones al recibir un golpe, y cuánto
+/// crecen en el pico de ese latido.
+pub const HEART_HIT_ANIMATION: f32 = 0.4;
+pub const HEART_HIT_SCALE: f32 = 0.35;
+/// Segundos de invulnerabilidad después de cada golpe.
+pub const DAMAGE_COOLDOWN: f32 = 1.0;
+
 // ── Niebla ───────────────────────────────────────────────────────────────
 pub const FOG_ENABLED: bool = true;
 pub const FOG_COLOR: Color = Color::new(14, 13, 17, 255);

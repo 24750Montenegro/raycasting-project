@@ -59,22 +59,51 @@ pub fn solid_at(maze: &Maze, point: Vector2, block_size: usize) -> Option<char> 
     }
 }
 
-pub fn is_wall(maze: &Maze, x: f32, y: f32, block_size: usize) -> bool {
-    solid_at(maze, Vector2::new(x, y), block_size).is_some()
+/// Un círculo de radio `radius` centrado en `pos` toca alguna pared. Lo usan
+/// tanto el jugador como los enemigos.
+pub fn collides(maze: &Maze, pos: Vector2, radius: f32, block_size: usize) -> bool {
+    [(-1.0, -1.0), (1.0, -1.0), (-1.0, 1.0), (1.0, 1.0)]
+        .iter()
+        .any(|&(sx, sy)| {
+            let corner = Vector2::new(pos.x + sx * radius, pos.y + sy * radius);
+            solid_at(maze, corner, block_size).is_some()
+        })
+}
+
+/// Centro en el mundo de la celda (col, row).
+pub fn cell_center(col: usize, row: usize, block_size: usize) -> Vector2 {
+    let block = block_size as f32;
+    Vector2::new(
+        col as f32 * block + block / 2.0,
+        row as f32 * block + block / 2.0,
+    )
 }
 
 pub fn find_player_start(maze: &Maze, block_size: usize) -> Vector2 {
-    let block = block_size as f32;
-
-    for (j, row) in maze.iter().enumerate() {
-        for (i, &cell) in row.iter().enumerate() {
+    for (row, cells) in maze.iter().enumerate() {
+        for (col, &cell) in cells.iter().enumerate() {
             if cell == 'p' {
-                return Vector2::new(
-                    i as f32 * block + block / 2.0,
-                    j as f32 * block + block / 2.0,
-                );
+                return cell_center(col, row, block_size);
             }
         }
     }
-    Vector2::new(block * 1.5, block * 1.5) // posición por defecto si no se encuentra 'p'
+    cell_center(1, 1, block_size) // posición por defecto si no se encuentra 'p'
+}
+
+/// Saca del laberinto las celdas que aparecen en `spawns` y devuelve dónde
+/// estaban. Se vacían para que el raycaster no las vea nunca como pared: así el
+/// bucle caliente no tiene que saber nada de enemigos.
+pub fn take_spawns(maze: &mut Maze, spawns: &[char], block_size: usize) -> Vec<(char, Vector2)> {
+    let mut found = Vec::new();
+
+    for row in 0..maze.len() {
+        for col in 0..maze[row].len() {
+            let cell = maze[row][col];
+            if spawns.contains(&cell) {
+                found.push((cell, cell_center(col, row, block_size)));
+                maze[row][col] = ' ';
+            }
+        }
+    }
+    found
 }

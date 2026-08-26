@@ -94,6 +94,7 @@ pub fn render_world(
     player: &Player,
     textures: &TextureManager,
     block_size: usize,
+    depth_buffer: &mut [f32],
 ) {
     let width = framebuffer.width as i32;
     let height = framebuffer.height as f32;
@@ -109,6 +110,7 @@ pub fn render_world(
 
     for x in 0..width {
         let mut touched = 0..0usize;
+        let mut nearest = f32::INFINITY;
 
         for sample in 0..samples {
             let offset = (sample as f32 + 0.5) / samples as f32;
@@ -127,9 +129,12 @@ pub fn render_world(
                 shading::fog_factor(distance),
             );
 
+            nearest = nearest.min(depth);
+
             let span = accumulate(&mut column, horizon, wall_height, |v| shader.at(v));
             touched = merge(touched, span);
         }
+        depth_buffer[x as usize] = nearest;
 
         for y in touched {
             if let Some(color) = column[y].resolve(per_sample) {

@@ -1,6 +1,7 @@
 use super::cell_color;
 use crate::caster::cast_ray;
 use crate::config;
+use crate::enemy::Enemies;
 use crate::framebuffer::Framebuffer;
 use crate::maze::{dimensions, is_solid, Maze};
 use crate::player::Player;
@@ -42,6 +43,7 @@ pub fn render_minimap(
     framebuffer: &mut Framebuffer,
     maze: &Maze,
     player: &Player,
+    enemies: &Enemies,
     mode: MinimapMode,
     block_size: usize,
 ) {
@@ -50,7 +52,16 @@ pub fn render_minimap(
     draw_panel(framebuffer, &layout);
     draw_walls(framebuffer, maze, &layout);
     draw_rays(framebuffer, maze, player, &layout, block_size);
+    draw_enemies(framebuffer, enemies, &layout);
     draw_player(framebuffer, player, &layout);
+}
+
+fn draw_enemies(framebuffer: &mut Framebuffer, enemies: &Enemies, layout: &Layout) {
+    let radius = (layout.cell * 0.2).max(2.0);
+
+    for enemy in enemies.iter() {
+        framebuffer.fill_circle(layout.to_screen(enemy.pos), radius, config::ENEMY_COLOR);
+    }
 }
 
 fn layout(framebuffer: &Framebuffer, maze: &Maze, mode: MinimapMode, block_size: usize) -> Layout {

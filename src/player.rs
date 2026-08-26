@@ -1,5 +1,5 @@
 use crate::config;
-use crate::maze::{find_player_start, is_wall, Maze};
+use crate::maze::{collides, find_player_start, Maze};
 use raylib::prelude::*;
 use std::f32::consts::PI;
 
@@ -71,20 +71,12 @@ impl Player {
         let dy = (sin * forward + cos * strafe) * speed;
 
         // ejes por separado para poder deslizarse a lo largo de una pared
-        if !self.collides(maze, self.pos.x + dx, self.pos.y, block_size) {
+        let radius = config::PLAYER_RADIUS;
+        if !collides(maze, Vector2::new(self.pos.x + dx, self.pos.y), radius, block_size) {
             self.pos.x += dx;
         }
-        if !self.collides(maze, self.pos.x, self.pos.y + dy, block_size) {
+        if !collides(maze, Vector2::new(self.pos.x, self.pos.y + dy), radius, block_size) {
             self.pos.y += dy;
         }
-    }
-
-    fn collides(&self, maze: &Maze, x: f32, y: f32, block_size: usize) -> bool {
-        let r = config::PLAYER_RADIUS;
-
-        is_wall(maze, x - r, y - r, block_size)
-            || is_wall(maze, x + r, y - r, block_size)
-            || is_wall(maze, x - r, y + r, block_size)
-            || is_wall(maze, x + r, y + r, block_size)
     }
 }
