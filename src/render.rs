@@ -88,19 +88,18 @@ pub fn render_world(
         let intersect = cast_ray(framebuffer, maze, player, ray_angle, block_size, false);
 
         // Corregir efecto de distorsión
-        let corrected_distance = intersect.distance * (player.angle - ray_angle).cos();
+        let corrected_distance = (intersect.distance * (player.angle - ray_angle).cos()).max(0.0001); // evitar división por cero
 
         // Altura de la pared en pixeles
-        let wall_height = (dpp / corrected_distance) as i32;
+        let wall_height = (block_size as f32 / corrected_distance ) * dpp;
 
-        // Dibujar pared
-        let wall_top = hh as i32 - wall_height / 2;
-        let wall_bottom = hh as i32 + wall_height / 2;
+        let top = (hh - wall_height / 2.0).max(0.0) as i32;
+        let bottom = (hh + wall_height / 2.0).min(height as f32) as i32;
 
-        for y in wall_top..wall_bottom {
-            if y >= 0 && y < height as i32 {
-                framebuffer.set_pixel_color(i as u32, y as u32, cell_color(intersect.impact));
-            }
+        let mut color = cell_color(intersect.impact);
+
+        if (bottom > top){
+            framebuffer.fill_rect(i as i32, top , 1, bottom - top, color);
         }
     }
 }

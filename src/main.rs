@@ -13,8 +13,8 @@ use std::f32::consts::PI;
 
 fn main() {
     //tamaño de la ventana
-    let window_width = 1450;
-    let window_height = 800;
+    let window_width = 1280;
+    let window_height = 720;
     let block_size = 50; // tamaño de cada celda del laberinto
     //iniciar raylib
     let (mut window, raylib_thread) = raylib::init()
@@ -29,7 +29,7 @@ fn main() {
     let mut player = Player {
         pos: Vector2::new(px, py),
         angle: PI/4.0,
-        fov: PI/4.0,
+        fov: PI/3.0,
     };
 
 
