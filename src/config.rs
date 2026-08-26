@@ -29,9 +29,9 @@ pub const RAY_MAX_DEPTH: f32 = 64.0;
 pub const RAY_REFINE_STEPS: u32 = 12;
 /// Rayos por columna de pantalla. Más de uno suaviza los bordes verticales a
 /// costa de trazar esa cantidad de rayos por píxel de ancho.
-pub const SAMPLES_PER_COLUMN: u32 = 2;
+pub const SAMPLES_PER_COLUMN: u32 = 1;
 
-// ── Iluminación ─────────────────────────────────────────────
+// ── Iluminación ──────────────────────────────────────────────────────────
 /// Luz mínima: ninguna superficie se pinta más oscura que esto.
 pub const LIGHT_AMBIENT: f32 = 0.12;
 /// Intensidad de la luz que acompaña al jugador.
@@ -44,18 +44,20 @@ pub const LIGHT_FALLOFF: f32 = 1.7;
 pub const LIGHT_VERTICAL_FACE: f32 = 1.0;
 pub const LIGHT_HORIZONTAL_FACE: f32 = 0.62;
 
-// ── Texturas ─────────────────────────────────────────────────
+// ── Texturas ─────────────────────────────────────────────────────────────
 /// Textura de cada carácter del laberinto. Los que no aparezcan se pintan con
 /// el color plano de render::cell_color.
 pub const WALL_TEXTURES: &[(char, &str)] = &[('-', "assets/netherbrick.webp")];
 /// Cuántas veces se repite la textura dentro de una celda, en cada eje.
 pub const TEXTURE_TILES_PER_BLOCK: f32 = 4.0;
-/// Lado máximo al que se reescalan las texturas al cargarlas.
-pub const TEXTURE_MAX_SIZE: u32 = 256;
-/// Filtrado bilineal al muestrear; apagarlo deja los téxeles duros.
+/// Lado máximo al que se reescalan las texturas al cargarlas. Bajarlo también
+/// acelera el render: cuanto más chica la textura, mejor cae en caché.
+pub const TEXTURE_MAX_SIZE: u32 = 128;
+/// Filtrado bilineal al muestrear. Apagarlo deja los téxeles duros y casi
+/// duplica los cuadros por segundo: son 4 lecturas de textura por píxel.
 pub const TEXTURE_BILINEAR: bool = true;
 
-// ── Niebla ────────────────────────────────────────────────────
+// ── Niebla ───────────────────────────────────────────────────────────────
 pub const FOG_ENABLED: bool = true;
 pub const FOG_COLOR: Color = Color::new(14, 13, 17, 255);
 /// Celdas a partir de las cuales la niebla empieza a notarse...
@@ -65,7 +67,7 @@ pub const FOG_END: f32 = 11.0;
 /// Exponente de la mezcla: >1 retrasa la niebla, <1 la adelanta.
 pub const FOG_DENSITY: f32 = 1.35;
 
-// ── Minimapa ─────────────────────────────────────────────────
+// ── Minimapa ─────────────────────────────────────────────────────────────
 /// Lado de cada celda del minimapa compacto, en píxeles de pantalla.
 pub const MINIMAP_COMPACT_CELL: f32 = 9.0;
 /// Separación del minimapa compacto respecto de la esquina.

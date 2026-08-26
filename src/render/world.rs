@@ -1,11 +1,12 @@
 use super::{cell_color, shading};
-use crate::caster::cast_ray;
+use crate::caster::{cast_ray, Intersect};
 use crate::config;
 use crate::framebuffer::Framebuffer;
 use crate::maze::Maze;
 use crate::player::Player;
-use crate::textures::TextureManager;
+use crate::textures::{TextureColumn, TextureManager};
 use raylib::prelude::*;
+use std::ops::Range;
 
 /// Color acumulado de una fila de la columna junto con la cobertura que le
 /// aportaron los rayos. Guardarlo así permite promediar varios rayos por columna
@@ -19,25 +20,71 @@ struct Accumulator {
 }
 
 impl Accumulator {
-    fn add(&mut self, color: Color, coverage: f32) {
-        self.red += color.r as f32 * coverage;
-        self.green += color.g as f32 * coverage;
-        self.blue += color.b as f32 * coverage;
+    #[inline]
+    fn add(&mut self, color: [f32; 3], coverage: f32) {
+        self.red += color[0] * coverage;
+        self.green += color[1] * coverage;
+        self.blue += color[2] * coverage;
         self.coverage += coverage;
     }
 
-    fn resolve(&self, samples: f32) -> Option<Color> {
+    /// Color resuelto de la fila, con la cobertura como alfa: en los bordes de
+    /// la pared es fraccionaria y deja ver el fondo que ya está pintado.
+    #[inline]
+    fn resolve(&self, per_sample: f32) -> Option<Color> {
         if self.coverage <= 0.0 {
             return None;
         }
-        let alpha = (self.coverage / samples).clamp(0.0, 1.0);
+        let average = 1.0 / self.coverage;
+        let alpha = (self.coverage * per_sample).clamp(0.0, 1.0);
 
         Some(Color::new(
-            (self.red / self.coverage) as u8,
-            (self.green / self.coverage) as u8,
-            (self.blue / self.coverage) as u8,
+            (self.red * average) as u8,
+            (self.green * average) as u8,
+            (self.blue * average) as u8,
             (alpha * 255.0) as u8,
         ))
+    }
+}
+
+/// Todo lo que define el color de una columna de pared, resuelto una sola vez
+/// por rayo: la textura y la luz y la niebla colapsadas en una recta por canal.
+/// Por píxel solo queda muestrear y aplicar esa recta.
+struct ColumnShader<'a> {
+    texture: Option<TextureColumn<'a>>,
+    flat: [f32; 3],
+    light: f32,
+    fog: [f32; 3],
+}
+
+impl<'a> ColumnShader<'a> {
+    fn new(textures: &'a TextureManager, hit: &Intersect, light: f32, fog: f32) -> Self {
+        let flat = cell_color(hit.impact);
+
+        ColumnShader {
+            texture: textures.wall_column(hit.impact, hit.tex_u),
+            flat: [flat.r as f32, flat.g as f32, flat.b as f32],
+            light: light * (1.0 - fog),
+            fog: [
+                config::FOG_COLOR.r as f32 * fog,
+                config::FOG_COLOR.g as f32 * fog,
+                config::FOG_COLOR.b as f32 * fog,
+            ],
+        }
+    }
+
+    #[inline]
+    fn at(&self, v: f32) -> [f32; 3] {
+        let base = match &self.texture {
+            Some(texture) => texture.at(v),
+            None => self.flat,
+        };
+
+        [
+            base[0] * self.light + self.fog[0],
+            base[1] * self.light + self.fog[1],
+            base[2] * self.light + self.fog[2],
+        ]
     }
 }
 
@@ -49,18 +96,19 @@ pub fn render_world(
     block_size: usize,
 ) {
     let width = framebuffer.width as i32;
-    let height = framebuffer.height as i32;
-    let horizon = framebuffer.height as f32 / 2.0;
+    let height = framebuffer.height as f32;
+    let horizon = height / 2.0;
     // distancia del ojo al plano de proyección, en píxeles
     let projection = (framebuffer.width as f32 / 2.0) / (player.fov / 2.0).tan();
 
     render_background(framebuffer, horizon, projection);
 
     let samples = config::SAMPLES_PER_COLUMN.max(1);
-    let mut column = vec![Accumulator::default(); height as usize];
+    let per_sample = 1.0 / samples as f32;
+    let mut column = vec![Accumulator::default(); framebuffer.height as usize];
 
     for x in 0..width {
-        column.fill(Accumulator::default());
+        let mut touched = 0..0usize;
 
         for sample in 0..samples {
             let offset = (sample as f32 + 0.5) / samples as f32;
@@ -70,23 +118,24 @@ pub fn render_world(
             // proyectar sobre el eje de la cámara corrige el ojo de pez
             let depth = (hit.distance * (angle - player.angle).cos()).max(f32::EPSILON);
             let wall_height = (block_size as f32 / depth) * projection;
+
             let distance = depth / block_size as f32;
-            let light = shading::wall_light(distance, hit.side);
-            let fog = shading::fog_factor(distance);
+            let shader = ColumnShader::new(
+                textures,
+                &hit,
+                shading::wall_light(distance, hit.side),
+                shading::fog_factor(distance),
+            );
 
-            accumulate(&mut column, horizon, wall_height, |v| {
-                let base = textures
-                    .wall(hit.impact, hit.tex_u, v)
-                    .unwrap_or_else(|| cell_color(hit.impact));
-
-                shading::mix(shading::shade(base, light), config::FOG_COLOR, fog)
-            });
+            let span = accumulate(&mut column, horizon, wall_height, |v| shader.at(v));
+            touched = merge(touched, span);
         }
 
-        for (y, accumulator) in column.iter().enumerate() {
-            if let Some(color) = accumulator.resolve(samples as f32) {
+        for y in touched {
+            if let Some(color) = column[y].resolve(per_sample) {
                 framebuffer.blend_pixel(x, y as i32, color);
             }
+            column[y] = Accumulator::default();
         }
     }
 }
@@ -111,19 +160,24 @@ fn render_background(framebuffer: &mut Framebuffer, horizon: f32, projection: f3
     }
 }
 
-/// Reparte la pared sobre las filas que toca. Las filas de los extremos reciben
-/// solo la fracción que la pared cubre, que es lo que suaviza el escalonado.
+/// Reparte la pared sobre las filas que toca y devuelve cuáles fueron. Las filas
+/// de los extremos reciben solo la fracción que la pared cubre, que es lo que
+/// suaviza el escalonado.
 fn accumulate(
     column: &mut [Accumulator],
     horizon: f32,
     wall_height: f32,
-    mut shade: impl FnMut(f32) -> Color,
-) {
+    mut shade: impl FnMut(f32) -> [f32; 3],
+) -> Range<usize> {
     let top = horizon - wall_height / 2.0;
     let bottom = horizon + wall_height / 2.0;
 
     let first = top.floor().max(0.0) as usize;
-    let last = (bottom.ceil() as usize).min(column.len());
+    let last = (bottom.ceil().max(0.0) as usize).min(column.len());
+    if last <= first {
+        return 0..0;
+    }
+    let inv_height = 1.0 / wall_height;
 
     for y in first..last {
         let from = (y as f32).max(top);
@@ -132,10 +186,21 @@ fn accumulate(
 
         if coverage > 0.0 {
             // altura relativa dentro de la pared del trozo que sí cubre la fila
-            let v = ((from + to) / 2.0 - top) / wall_height;
+            let v = ((from + to) * 0.5 - top) * inv_height;
             column[y].add(shade(v), coverage);
         }
     }
+    first..last
+}
+
+fn merge(a: Range<usize>, b: Range<usize>) -> Range<usize> {
+    if a.is_empty() {
+        return b;
+    }
+    if b.is_empty() {
+        return a;
+    }
+    a.start.min(b.start)..a.end.max(b.end)
 }
 
 /// Ángulo del rayo que atraviesa la columna `x` de la pantalla.

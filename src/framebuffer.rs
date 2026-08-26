@@ -5,7 +5,6 @@ pub struct Framebuffer {
     pub width: u32,
     pub height: u32,
     pixels: Vec<u8>,
-    background_color: Color,
     texture: Texture2D,
 }
 
@@ -15,9 +14,8 @@ impl Framebuffer {
         raylib_thread: &RaylibThread,
         width: u32,
         height: u32,
-        background_color: Color,
     ) -> Self {
-        let blank = Image::gen_image_color(width as i32, height as i32, background_color);
+        let blank = Image::gen_image_color(width as i32, height as i32, Color::BLACK);
         let texture = window
             .load_texture_from_image(raylib_thread, &blank)
             .expect("no se pudo crear la textura del framebuffer");
@@ -26,20 +24,7 @@ impl Framebuffer {
             width,
             height,
             pixels: vec![0; (width * height * 4) as usize],
-            background_color,
             texture,
-        }
-    }
-
-    pub fn clear(&mut self) {
-        let bg = [
-            self.background_color.r,
-            self.background_color.g,
-            self.background_color.b,
-            255,
-        ];
-        for pixel in self.pixels.chunks_exact_mut(4) {
-            pixel.copy_from_slice(&bg);
         }
     }
 
@@ -78,9 +63,19 @@ impl Framebuffer {
     }
 
     pub fn fill_rect(&mut self, x: i32, y: i32, width: i32, height: i32, color: Color) {
+        let left = x.max(0);
+        let right = (x + width).min(self.width as i32);
+        if right <= left {
+            return;
+        }
+        let rgba = [color.r, color.g, color.b, 255];
+
         for py in y.max(0)..(y + height).min(self.height as i32) {
-            for px in x.max(0)..(x + width).min(self.width as i32) {
-                self.set_pixel(px, py, color);
+            let start = ((py as u32 * self.width + left as u32) * 4) as usize;
+            let end = start + (right - left) as usize * 4;
+
+            for pixel in self.pixels[start..end].chunks_exact_mut(4) {
+                pixel.copy_from_slice(&rgba);
             }
         }
     }

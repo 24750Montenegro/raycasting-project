@@ -22,14 +22,6 @@ fn face_light(side: Side) -> f32 {
     }
 }
 
-pub fn shade(color: Color, light: f32) -> Color {
-    Color::new(
-        (color.r as f32 * light) as u8,
-        (color.g as f32 * light) as u8,
-        (color.b as f32 * light) as u8,
-        color.a,
-    )
-}
 
 /// Peso de la niebla en [0, 1] para algo a `distance` celdas del jugador.
 pub fn fog_factor(distance: f32) -> f32 {

@@ -6,6 +6,10 @@ edition = "2024"
 [profile.dev]
 opt-level = 3
 debug = false
+# el render es CPU puro: con los chequeos de desbordamiento del perfil dev
+# activados cada frame cuesta ~3.5x mas
+debug-assertions = false
+overflow-checks = false
 
 [dependencies]
 image = { version = "0.25.10", default-features = false, features = ["webp", "png", "jpeg"] }

@@ -9,8 +9,8 @@ mod textures;
 use framebuffer::Framebuffer;
 use maze::load_maze;
 use player::Player;
-use render::MinimapMode;
 use raylib::prelude::*;
+use render::MinimapMode;
 use textures::TextureManager;
 
 fn main() {
@@ -31,7 +31,6 @@ fn main() {
         &raylib_thread,
         config::WINDOW_WIDTH as u32,
         config::WINDOW_HEIGHT as u32,
-        config::FLOOR_COLOR,
     );
 
     let mut minimap = MinimapMode::Compact;
@@ -43,7 +42,6 @@ fn main() {
 
         player.update(&window, &maze, config::BLOCK_SIZE);
 
-        framebuffer.clear();
         render::render_world(&mut framebuffer, &maze, &player, &textures, config::BLOCK_SIZE);
         render::render_minimap(&mut framebuffer, &maze, &player, minimap, config::BLOCK_SIZE);
         framebuffer.present(&mut window, &raylib_thread);
