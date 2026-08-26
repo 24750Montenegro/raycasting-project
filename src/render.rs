@@ -36,7 +36,7 @@ pub fn render_maze(framebuffer: &mut Framebuffer, maze: &Maze, block_size: usize
     }
 
     // Dibujar jugador
-    framebuffer.set_current_color(Color::CYAN);
+    framebuffer.set_current_color(Color::RED);
     let px = player.pos.x as i32;
     let py = player.pos.y as i32;
 

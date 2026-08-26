@@ -5,8 +5,9 @@ mod player;
 
 use framebuffer::Framebuffer;
 use raylib::prelude::*;
-use maze::load_maze;
+use maze::{load_maze, find_player_start};
 use player::Player;
+use std::f32::consts::PI;
 
 
 fn main() {
@@ -23,12 +24,14 @@ fn main() {
     let maze = load_maze("maze.txt");
 
     //posicion inicial del jugador
-    let (px, py) = maze::find_player_start(&maze, block_size);
-    let player = Player {
+    let (px, py) = find_player_start(&maze, block_size);
+    let mut player = Player {
         pos: Vector2::new(px, py),
-        angle: 0.0,
-        fov: 60.0 * (std::f32::consts::PI / 180.0), // Convertir a radianes
+        angle: PI/4.0,
+        fov: PI/4.0,
     };
+
+
     let mut framebuffer = Framebuffer::new(
         window_width as u32, 
         window_height as u32, 
@@ -36,10 +39,22 @@ fn main() {
     );
 
     window.set_target_fps(60);
+    window.disable_cursor();
+
+    let mut mode = "2D";
+
 
     while !window.window_should_close() {
+        if window.is_key_pressed(KeyboardKey::KEY_M) {
+            mode = if mode == "2D" { "3D" } else { "2D" };
+        }
+
+         //movimiento del jugador
+        player::process_events(&mut player, &window, &maze, block_size);
+
         //limpiar framebuffer
         framebuffer.clear();
+
 
         //dibujo del laberinto
         render::render_maze(&mut framebuffer, &maze, block_size, &player);
