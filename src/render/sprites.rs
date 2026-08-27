@@ -20,6 +20,8 @@ struct Sprite<'a> {
     aspect: f32,
     /// Cuánto se despega del piso, en fracción de una celda.
     lift: f32,
+    /// Cuánto se mezcla con ENEMY_HIT_COLOR, para el destello del golpe.
+    flash: f32,
 }
 
 /// Un sprite ya proyectado a pantalla. La luz y la niebla vienen colapsadas en
@@ -33,6 +35,7 @@ struct Billboard<'a> {
     top_left: Vector2,
     size: Vector2,
     light: f32,
+    flash: f32,
     fog: [f32; 3],
 }
 
@@ -56,6 +59,7 @@ pub fn render_sprites(
         height: config::ENEMY_SIZE,
         aspect: config::ENEMY_ASPECT,
         lift: 0.0,
+        flash: enemy.flash(),
     });
     let clock = items.clock();
     let loose = items.loose().map(|item| Sprite {
@@ -65,6 +69,7 @@ pub fn render_sprites(
         height: config::ITEM_SIZE,
         aspect: config::ITEM_ASPECT,
         lift: item.lift(clock),
+        flash: 0.0,
     });
 
     let mut visible: Vec<Billboard> = enemies
@@ -120,6 +125,7 @@ fn project<'a>(
         top_left: Vector2::new(center_x - size.x / 2.0, floor - size.y),
         size,
         light: shading::sprite_light(distance) * (1.0 - fog),
+        flash: sprite.flash,
         fog: [
             config::FOG_COLOR.r as f32 * fog,
             config::FOG_COLOR.g as f32 * fog,
@@ -163,6 +169,9 @@ fn draw(framebuffer: &mut Framebuffer, billboard: &Billboard, depth_buffer: &[f3
 impl Billboard<'_> {
     #[inline]
     fn tint(&self, texel: Color) -> Color {
+        // el destello va antes que la luz: es el sprite el que se aclara, no la
+        // luz que le llega, así que también se ve de lejos
+        let texel = shading::mix(texel, config::ENEMY_HIT_COLOR, self.flash);
         let channel = |value: u8, fog: f32| (value as f32 * self.light + fog) as u8;
 
         Color::new(

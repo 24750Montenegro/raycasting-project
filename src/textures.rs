@@ -158,6 +158,7 @@ pub struct TextureManager {
     enemies: HashMap<char, Texture>,
     items: HashMap<char, Texture>,
     hearts: Vec<Texture>,
+    weapon: Vec<Texture>,
 }
 
 impl TextureManager {
@@ -191,6 +192,9 @@ impl TextureManager {
             enemies,
             items,
             hearts: load_frames(config::HEART_SHEET, config::HEART_FRAMES),
+            weapon: config::ATTACK_SHEET
+                .map(|sheet| load_frames(sheet, config::ATTACK_FRAMES))
+                .unwrap_or_default(),
         }
     }
 
@@ -216,6 +220,12 @@ impl TextureManager {
 
     pub fn heart(&self, frame: usize) -> Option<&Texture> {
         self.hearts.get(frame)
+    }
+
+    /// Cuadro de la animación del golpe, o None mientras ATTACK_SHEET no tenga
+    /// una hoja: ahí el arma se dibuja con bloques.
+    pub fn weapon(&self, frame: usize) -> Option<&Texture> {
+        self.weapon.get(frame)
     }
 }
 

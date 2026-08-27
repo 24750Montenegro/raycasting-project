@@ -6,6 +6,12 @@
 /// Algo que acaba de pasar en el mundo, en el cuadro que se está actualizando.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum GameEvent {
+    /// El jugador tiró un golpe, haya acertado o no.
+    Attack,
+    /// Un golpe entró en un enemigo que sigue vivo.
+    EnemyHit,
+    /// Un enemigo se quedó sin aguante.
+    EnemyDown,
     /// El jugador levantó un objeto.
     ItemPickup,
     /// El jugador dejó lo que llevaba en el punto de entrega.

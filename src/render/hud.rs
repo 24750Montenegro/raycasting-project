@@ -96,24 +96,11 @@ fn beat_scale(health: &Health) -> f32 {
 /// `size` sin deformarla: el cuadro no tiene por qué ser cuadrado.
 fn draw_icon(framebuffer: &mut Framebuffer, texture: &Texture, center: Vector2, size: f32) {
     let aspect = texture.width() as f32 / texture.height() as f32;
-    let (width, height) = if aspect >= 1.0 {
-        (size, size / aspect)
+    let fitted = if aspect >= 1.0 {
+        Vector2::new(size, size / aspect)
     } else {
-        (size * aspect, size)
+        Vector2::new(size * aspect, size)
     };
-    let left = center.x - width / 2.0;
-    let top = center.y - height / 2.0;
 
-    for y in top.floor() as i32..(top + height).ceil() as i32 {
-        let v = (y as f32 + 0.5 - top) / height;
-
-        for x in left.floor() as i32..(left + width).ceil() as i32 {
-            let u = (x as f32 + 0.5 - left) / width;
-            let texel = texture.sample(u, v);
-
-            if texel.a > config::SPRITE_ALPHA_CUTOFF {
-                framebuffer.blend_pixel(x, y, texel);
-            }
-        }
-    }
+    super::blit(framebuffer, texture, center - fitted / 2.0, fitted);
 }

@@ -89,6 +89,15 @@ pub const ENEMY_SPEED: f32 = 85.0;
 /// ser lo bastante chico como para poder cruzarse con el jugador dentro de un
 /// pasillo: hace falta que 2 * (ENEMY_RADIUS + PLAYER_RADIUS) < BLOCK_SIZE.
 pub const ENEMY_RADIUS: f32 = 6.5;
+/// Golpes que aguanta antes de caer.
+pub const ENEMY_HITS: u32 = 5;
+/// Segundos que el enemigo queda frenado después de cada golpe, que es la
+/// ventana para sacárselo de encima.
+pub const ENEMY_STAGGER: f32 = 0.22;
+/// Destello del sprite al recibir un golpe: cuánto dura y hacia qué color se
+/// mezcla en el pico.
+pub const ENEMY_HIT_FLASH: f32 = 0.14;
+pub const ENEMY_HIT_COLOR: Color = Color::new(255, 240, 232, 255);
 /// Alto del sprite como fracción de una celda...
 pub const ENEMY_SIZE: f32 = 0.75;
 /// ...y ancho como fracción de ese alto: <1 deja una figura angosta, acorde al
@@ -101,6 +110,39 @@ pub const SPRITE_ALPHA_CUTOFF: u8 = 8;
 /// Distancia mínima a la cámara para dibujar un sprite, en píxeles del mundo.
 /// Más cerca que esto el tamaño se dispara y no queda nada útil en pantalla.
 pub const SPRITE_NEAR_PLANE: f32 = 6.0;
+
+// ── Ataque ───────────────────────────────────────────────────────────────
+/// Con qué se pega: botón del mouse y botón del control.
+pub const ATTACK_MOUSE_BUTTON: MouseButton = MouseButton::MOUSE_BUTTON_LEFT;
+pub const GAMEPAD_ATTACK_BUTTON: GamepadButton = GamepadButton::GAMEPAD_BUTTON_RIGHT_FACE_LEFT;
+/// Cuánto dura el golpe entero y en qué fracción de esa duración toca. Subirlo
+/// hace el golpe más lento de resolver y más fácil de castigar.
+pub const ATTACK_DURATION: f32 = 0.34;
+pub const ATTACK_CONTACT: f32 = 0.45;
+/// Espera entre el final de un golpe y el siguiente.
+pub const ATTACK_COOLDOWN: f32 = 0.12;
+/// Alcance desde el centro del jugador, en píxeles del mundo, y abertura del
+/// cono al que llega. Solo se lleva el golpe el enemigo más cercano de los que
+/// caigan adentro.
+pub const ATTACK_RANGE: f32 = 46.0;
+pub const ATTACK_ARC: f32 = PI / 2.0;
+/// Empujón que se lleva el enemigo golpeado, en píxeles del mundo.
+pub const ATTACK_KNOCKBACK: f32 = 14.0;
+/// Hoja de la animación del golpe, con el primer cuadro en reposo y el resto
+/// repartido a lo largo del golpe. Sin hoja (None) se dibuja el puño de
+/// bloques de render::weapon.
+pub const ATTACK_SHEET: Option<&str> = None;
+pub const ATTACK_FRAMES: usize = 4;
+/// Alto del arma en pantalla como fracción del alto de la ventana, ancho como
+/// fracción de ese alto, margen contra la esquina y cuánto se desplaza durante
+/// el golpe (en fracción de su propio tamaño).
+pub const WEAPON_HEIGHT: f32 = 0.42;
+pub const WEAPON_ASPECT: f32 = 0.34;
+pub const WEAPON_MARGIN: f32 = 0.01;
+pub const WEAPON_SWING: f32 = 0.22;
+/// Colores del puño de reemplazo, mientras no haya hoja.
+pub const WEAPON_COLOR: Color = Color::new(206, 158, 122, 255);
+pub const WEAPON_ARM_COLOR: Color = Color::new(74, 62, 84, 255);
 
 // ── Objetos y entrega ────────────────────────────────────────────────────
 /// Objetos que se juntan: carácter en el laberinto -> textura del sprite.

@@ -1,3 +1,4 @@
+mod attack;
 mod caster;
 mod config;
 mod enemy;
@@ -11,6 +12,7 @@ mod player;
 mod render;
 mod textures;
 
+use attack::Attack;
 use enemy::Enemies;
 use events::{Events, GameEvent};
 use framebuffer::Framebuffer;
@@ -38,6 +40,7 @@ fn main() {
     let mut items = Items::spawn(&mut maze, config::BLOCK_SIZE);
     let mut player = Player::spawn(&maze, config::BLOCK_SIZE);
     let mut health = Health::full();
+    let mut attack = Attack::new();
     let mut events = Events::new();
 
     let textures = TextureManager::load();
@@ -69,11 +72,25 @@ fn main() {
                 player = Player::spawn(&maze, config::BLOCK_SIZE);
                 enemies.reset();
                 items.reset();
+                attack.cancel();
                 health = Health::full();
             }
         } else {
             player.update(&window, &maze, config::BLOCK_SIZE);
             health.tick(dt);
+
+            // el golpe se resuelve en el instante de contacto de la animación,
+            // no al apretar el botón
+            if attack.update(&window, dt, &mut events) {
+                enemies.strike(
+                    &maze,
+                    player.pos,
+                    player.direction(),
+                    &mut events,
+                    config::BLOCK_SIZE,
+                );
+            }
+
             enemies.update(
                 &maze,
                 player.pos,
@@ -112,6 +129,7 @@ fn main() {
             &depth_buffer,
             config::BLOCK_SIZE,
         );
+        render::render_weapon(&mut framebuffer, &attack, &textures);
         render::render_minimap(
             &mut framebuffer,
             &maze,
