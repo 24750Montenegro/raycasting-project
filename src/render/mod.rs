@@ -7,7 +7,7 @@ mod sprites;
 mod weapon;
 mod world;
 
-pub use game_over::render_game_over;
+pub use game_over::render_banner;
 pub use hud::{render_health, render_score};
 pub use minimap::{render_minimap, MinimapMode};
 pub use sprites::render_sprites;

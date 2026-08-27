@@ -1,4 +1,5 @@
 use crate::config;
+use crate::config::Level;
 use crate::events::{Events, GameEvent};
 use crate::health::Health;
 use crate::maze::{collides, take_spawns, Maze};
@@ -8,9 +9,10 @@ pub struct Enemy {
     pub pos: Vector2,
     /// Carácter con el que apareció, que es como se busca su textura.
     pub kind: char,
-    origin: Vector2,
-    /// Golpes recibidos. Al llegar a ENEMY_HITS deja de contar para todo.
-    hits: u32,
+    /// Golpes que le quedan por aguantar. En cero deja de contar para todo.
+    hits_left: u32,
+    /// Velocidad de persecución, que la pone el nivel.
+    speed: f32,
     /// Segundos que le quedan de estar frenado por el último golpe.
     stagger: f32,
     /// Segundos que le quedan al destello del último golpe.
@@ -24,7 +26,7 @@ pub struct Enemies {
 }
 
 impl Enemies {
-    pub fn spawn(maze: &mut Maze, block_size: usize) -> Self {
+    pub fn spawn(maze: &mut Maze, level: &Level, block_size: usize) -> Self {
         let spawns: Vec<char> = config::ENEMY_TEXTURES.iter().map(|&(cell, _)| cell).collect();
 
         let enemies = take_spawns(maze, &spawns, block_size)
@@ -32,8 +34,8 @@ impl Enemies {
             .map(|(kind, pos)| Enemy {
                 pos,
                 kind,
-                origin: pos,
-                hits: 0,
+                hits_left: level.enemy_hits,
+                speed: level.enemy_speed,
                 stagger: 0.0,
                 flash: 0.0,
             })
@@ -125,20 +127,11 @@ impl Enemies {
             GameEvent::EnemyDown
         });
     }
-
-    pub fn reset(&mut self) {
-        for enemy in self.enemies.iter_mut() {
-            enemy.pos = enemy.origin;
-            enemy.hits = 0;
-            enemy.stagger = 0.0;
-            enemy.flash = 0.0;
-        }
-    }
 }
 
 impl Enemy {
     pub fn alive(&self) -> bool {
-        self.hits < config::ENEMY_HITS
+        self.hits_left > 0
     }
 
     /// Cuánto destella ahora mismo, en [0, 1]. Es lo que mezcla el sprite con
@@ -148,7 +141,7 @@ impl Enemy {
     }
 
     fn take_hit(&mut self, maze: &Maze, from: Vector2, block_size: usize) {
-        self.hits += 1;
+        self.hits_left = self.hits_left.saturating_sub(1);
         self.flash = config::ENEMY_HIT_FLASH;
         self.stagger = config::ENEMY_STAGGER;
 
@@ -169,7 +162,7 @@ impl Enemy {
             return;
         }
 
-        self.slide(maze, to_target / distance * config::ENEMY_SPEED * dt, block_size);
+        self.slide(maze, to_target / distance * self.speed * dt, block_size);
     }
 
     /// Mueve el enemigo `step`, un eje por vez, para que se deslice por las

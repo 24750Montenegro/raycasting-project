@@ -2,7 +2,6 @@ use super::font;
 use crate::config;
 use crate::framebuffer::Framebuffer;
 use crate::health::Health;
-use crate::items::Items;
 use crate::textures::{Texture, TextureManager};
 use raylib::prelude::*;
 
@@ -32,12 +31,25 @@ pub fn render_health(framebuffer: &mut Framebuffer, health: &Health, textures: &
     }
 }
 
-/// Puntaje arriba a la derecha y, abajo a la derecha, cuántos objetos se llevan
-/// encima sin entregar todavía.
-pub fn render_score(framebuffer: &mut Framebuffer, items: &Items, textures: &TextureManager) {
+/// Número de nivel arriba a la izquierda, puntaje arriba a la derecha y, abajo
+/// a la derecha, cuántos objetos se llevan encima sin entregar todavía.
+pub fn render_score(
+    framebuffer: &mut Framebuffer,
+    level: u32,
+    score: u32,
+    carried: u32,
+    textures: &TextureManager,
+) {
     let right = framebuffer.width as f32 - config::SCORE_MARGIN;
 
-    let score = items.score();
+    font::draw_number(
+        framebuffer,
+        level,
+        Vector2::new(config::SCORE_MARGIN, config::SCORE_MARGIN),
+        config::LEVEL_BLOCK,
+        config::LEVEL_COLOR,
+    );
+
     font::draw_number(
         framebuffer,
         score,
@@ -49,7 +61,6 @@ pub fn render_score(framebuffer: &mut Framebuffer, items: &Items, textures: &Tex
         config::SCORE_COLOR,
     );
 
-    let carried = items.carried();
     let block = config::CARRY_BLOCK;
     // a la misma altura que los corazones, para que el HUD lea como una línea
     let baseline = framebuffer.height as f32 - config::HEART_MARGIN - config::HEART_SIZE / 2.0;

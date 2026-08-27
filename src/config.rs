@@ -9,8 +9,29 @@ pub const WINDOW_WIDTH: i32 = 1280;
 pub const WINDOW_HEIGHT: i32 = 720;
 pub const TARGET_FPS: u32 = 60;
 
+// ── Niveles ──────────────────────────────────────────────────────────────
+/// Un nivel: qué mapa se juega y con qué dificultad. Todo lo que sube de un
+/// nivel al siguiente va acá, así agregar un mapa es agregar una fila.
+pub struct Level {
+    pub maze_file: &'static str,
+    /// Golpes que aguanta cada enemigo antes de caer.
+    pub enemy_hits: u32,
+    /// Velocidad con la que persiguen, en píxeles del mundo por segundo.
+    pub enemy_speed: f32,
+    /// Puntos que da cada objeto entregado en la meta.
+    pub item_score: u32,
+}
+
+/// Los niveles en orden. Se juegan uno tras otro y el puntaje se arrastra de
+/// uno al siguiente; agregar un mapa nuevo es agregar una fila acá.
+pub const LEVELS: &[Level] = &[Level {
+    maze_file: "maze.txt",
+    enemy_hits: 5,
+    enemy_speed: 85.0,
+    item_score: 100,
+}];
+
 // ── Mundo ────────────────────────────────────────────────────────────────
-pub const MAZE_FILE: &str = "maze.txt";
 pub const BLOCK_SIZE: usize = 40;
 
 // ── Jugador ──────────────────────────────────────────────────────────────
@@ -84,14 +105,10 @@ pub const TEXTURE_BILINEAR: bool = true;
 /// libre. Sin textura (None) se dibujan con ENEMY_COLOR.
 pub const ENEMY_TEXTURES: &[(char, Option<&str>)] = &[('e', None)];
 pub const ENEMY_COLOR: Color = Color::new(196, 38, 38, 255);
-/// Velocidad con la que persiguen, en píxeles del mundo por segundo.
-pub const ENEMY_SPEED: f32 = 85.0;
 /// Radio del enemigo, para chocar con las paredes y con el jugador. Tiene que
 /// ser lo bastante chico como para poder cruzarse con el jugador dentro de un
 /// pasillo: hace falta que 2 * (ENEMY_RADIUS + PLAYER_RADIUS) < BLOCK_SIZE.
 pub const ENEMY_RADIUS: f32 = 6.5;
-/// Golpes que aguanta antes de caer.
-pub const ENEMY_HITS: u32 = 5;
 /// Segundos que el enemigo queda frenado después de cada golpe, que es la
 /// ventana para sacárselo de encima.
 pub const ENEMY_STAGGER: f32 = 0.22;
@@ -176,8 +193,6 @@ pub const ITEM_ASPECT: f32 = 1.0;
 pub const ITEM_PICKUP_RADIUS: f32 = 12.0;
 /// Cuántos se pueden llevar a la vez: obliga a volver a la meta a descargar.
 pub const ITEM_CARRY_LIMIT: u32 = 3;
-/// Puntos que da cada objeto al entregarlo.
-pub const ITEM_SCORE: u32 = 100;
 /// Flote del sprite: altura sobre el piso en fracción de celda, amplitud y
 /// velocidad del vaivén, y desfase entre un objeto y el siguiente.
 pub const ITEM_LIFT: f32 = 0.34;
@@ -198,6 +213,9 @@ pub const GOAL_COLOR: Color = Color::new(96, 214, 120, 255);
 pub const SCORE_BLOCK: f32 = 6.0;
 pub const SCORE_MARGIN: f32 = 20.0;
 pub const SCORE_COLOR: Color = Color::new(238, 232, 220, 255);
+/// Número de nivel, arriba a la izquierda.
+pub const LEVEL_BLOCK: f32 = 5.0;
+pub const LEVEL_COLOR: Color = Color::new(146, 142, 152, 255);
 /// Contador de lo que se lleva encima: tamaño del ícono, separación con el
 /// número y bloque de sus dígitos.
 pub const CARRY_ICON_SIZE: f32 = 18.0;
@@ -266,6 +284,31 @@ pub const GAME_OVER_COLOR: Color = Color::new(214, 52, 46, 255);
 pub const GAME_OVER_HINT_COLOR: Color = Color::new(168, 164, 172, 255);
 /// Velo que se pinta encima de la escena congelada.
 pub const GAME_OVER_VEIL: Color = Color::new(10, 8, 12, 200);
+
+/// Cartel de nivel terminado y cartel de partida ganada. Se dibujan igual que
+/// el de game over y con la misma leyenda para seguir.
+pub const LEVEL_CLEAR_ART: &[&str] = &[
+    "#  # ### #  # #### #   ",
+    "## #  #  #  # #    #   ",
+    "# ##  #  #  # ###  #   ",
+    "#  #  #  #  # #    #   ",
+    "#  # ###  ##  #### ####",
+    "                       ",
+    "#    ### #### ### #### ",
+    "#     #  #     #  #  # ",
+    "#     #  ####  #  #  # ",
+    "#     #     #  #  #  # ",
+    "#### ### ####  #  #### ",
+];
+pub const LEVEL_CLEAR_COLOR: Color = Color::new(96, 214, 120, 255);
+pub const VICTORY_ART: &[&str] = &[
+    "#### #### #  # #### #### ### ####",
+    "#    #  # ## # #  # #     #  #   ",
+    "# ## #### # ## #### ####  #  ### ",
+    "#  # #  # #  # #  #    #  #  #   ",
+    "#### #  # #  # #  # ####  #  ####",
+];
+pub const VICTORY_COLOR: Color = Color::new(240, 196, 62, 255);
 
 // ── Niebla ───────────────────────────────────────────────────────────────
 pub const FOG_ENABLED: bool = true;

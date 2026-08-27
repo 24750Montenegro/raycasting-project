@@ -4,6 +4,7 @@
 //! decidir cuándo volver.
 
 use crate::config;
+use crate::config::Level;
 use crate::events::{Events, GameEvent};
 use crate::maze::{find_cells, take_spawns, Maze};
 use raylib::prelude::*;
@@ -44,12 +45,14 @@ pub struct Items {
     carried: u32,
     delivered: u32,
     score: u32,
+    /// Puntos por objeto entregado, que los pone el nivel.
+    value: u32,
     /// Segundos desde que empezó el nivel, para el flote de los sprites.
     clock: f32,
 }
 
 impl Items {
-    pub fn spawn(maze: &mut Maze, block_size: usize) -> Self {
+    pub fn spawn(maze: &mut Maze, level: &Level, block_size: usize) -> Self {
         let spawns: Vec<char> = config::ITEM_TEXTURES.iter().map(|&(cell, _)| cell).collect();
 
         let items = take_spawns(maze, &spawns, block_size)
@@ -69,6 +72,7 @@ impl Items {
             carried: 0,
             delivered: 0,
             score: 0,
+            value: level.item_score,
             clock: 0.0,
         }
     }
@@ -143,7 +147,7 @@ impl Items {
             }
         }
 
-        self.score += self.carried * config::ITEM_SCORE;
+        self.score += self.carried * self.value;
         self.delivered += self.carried;
         self.carried = 0;
         events.push(GameEvent::ItemDeliver);
@@ -157,16 +161,5 @@ impl Items {
         self.goals
             .iter()
             .any(|&goal| (player_pos - goal).length() <= config::GOAL_REACH)
-    }
-
-    /// Vuelve a dejar el nivel como al empezar, marcador incluido.
-    pub fn reset(&mut self) {
-        for item in self.items.iter_mut() {
-            item.state = ItemState::Loose;
-        }
-        self.carried = 0;
-        self.delivered = 0;
-        self.score = 0;
-        self.clock = 0.0;
     }
 }

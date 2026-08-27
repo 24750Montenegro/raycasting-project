@@ -11,20 +11,32 @@ mod items;
 mod maze;
 mod player;
 mod render;
+mod stage;
 mod textures;
 
 use attack::Attack;
 use audio::Sounds;
-use enemy::Enemies;
 use events::{Events, GameEvent};
 use framebuffer::Framebuffer;
 use health::Health;
-use items::Items;
-use maze::load_maze;
-use player::Player;
 use raylib::prelude::*;
 use render::MinimapMode;
+use stage::Stage;
 use textures::TextureManager;
+
+/// En qué está la partida. Fuera de Playing el mundo queda congelado: se sigue
+/// dibujando la última escena con un cartel encima, y la tecla de reinicio es
+/// lo único que hace algo.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Phase {
+    Playing,
+    /// Se entregó todo lo del nivel.
+    Cleared,
+    /// Se acabó la vida.
+    Over,
+    /// Se terminó el último nivel.
+    Won,
+}
 
 fn main() {
     let (mut window, raylib_thread) = raylib::init()
@@ -35,12 +47,8 @@ fn main() {
     window.set_target_fps(config::TARGET_FPS);
     window.disable_cursor();
 
-    // spawn vacía del laberinto las celdas de enemigos y objetos, así que van
-    // antes que cualquier cosa que lea el mapa
-    let mut maze = load_maze(config::MAZE_FILE);
-    let mut enemies = Enemies::spawn(&mut maze, config::BLOCK_SIZE);
-    let mut items = Items::spawn(&mut maze, config::BLOCK_SIZE);
-    let mut player = Player::spawn(&maze, config::BLOCK_SIZE);
+    let mut stage = Stage::start(config::BLOCK_SIZE);
+    let mut phase = Phase::Playing;
     let mut health = Health::full();
     let mut attack = Attack::new();
     let mut events = Events::new();
@@ -81,49 +89,42 @@ fn main() {
             minimap = minimap.toggled();
         }
 
-        // sin vida el mundo queda congelado: se sigue dibujando la ultima
-        // escena, pero ya nada se mueve hasta reiniciar
-        if health.is_empty() {
-            if window.is_key_pressed(KeyboardKey::KEY_R)
-                || gamepad::button_pressed(&window, config::GAMEPAD_RESTART_BUTTON)
-            {
-                player = Player::spawn(&maze, config::BLOCK_SIZE);
-                enemies.reset();
-                items.reset();
-                attack.cancel();
-                health = Health::full();
-            }
-        } else {
-            player.update(&window, &maze, config::BLOCK_SIZE);
+        if phase == Phase::Playing {
+            stage.player.update(&window, &stage.maze, config::BLOCK_SIZE);
             health.tick(dt);
 
             // el golpe se resuelve en el instante de contacto de la animación,
             // no al apretar el botón
             if attack.update(&window, dt, &mut events) {
-                enemies.strike(
-                    &maze,
-                    player.pos,
-                    player.direction(),
+                stage.enemies.strike(
+                    &stage.maze,
+                    stage.player.pos,
+                    stage.player.direction(),
                     &mut events,
                     config::BLOCK_SIZE,
                 );
             }
 
-            enemies.update(
-                &maze,
-                player.pos,
+            stage.enemies.update(
+                &stage.maze,
+                stage.player.pos,
                 &mut health,
                 &mut events,
                 config::BLOCK_SIZE,
                 dt,
             );
-            items.update(player.pos, dt, &mut events);
+            stage.items.update(stage.player.pos, dt, &mut events);
 
-            // la rama corre solo mientras quedaba vida, así que el aviso de
-            // caída sale una vez y no en cada cuadro del game over
+            // la rama corre solo mientras se estaba jugando, así que cada aviso
+            // sale una vez y no en cada cuadro del cartel
             if health.is_empty() {
                 events.push(GameEvent::PlayerDown);
+                phase = Phase::Over;
+            } else if stage.items.all_delivered() {
+                phase = Phase::Cleared;
             }
+        } else if restart_pressed(&window) {
+            phase = next_run(&mut stage, phase, &mut health, &mut attack);
         }
 
         for event in events.drain() {
@@ -134,17 +135,17 @@ fn main() {
 
         render::render_world(
             &mut framebuffer,
-            &maze,
-            &player,
+            &stage.maze,
+            &stage.player,
             &textures,
             config::BLOCK_SIZE,
             &mut depth_buffer,
         );
         render::render_sprites(
             &mut framebuffer,
-            &enemies,
-            &items,
-            &player,
+            &stage.enemies,
+            &stage.items,
+            &stage.player,
             &textures,
             &depth_buffer,
             config::BLOCK_SIZE,
@@ -152,20 +153,58 @@ fn main() {
         render::render_weapon(&mut framebuffer, &attack, &textures);
         render::render_minimap(
             &mut framebuffer,
-            &maze,
-            &player,
-            &enemies,
-            &items,
+            &stage.maze,
+            &stage.player,
+            &stage.enemies,
+            &stage.items,
             minimap,
             config::BLOCK_SIZE,
         );
         render::render_health(&mut framebuffer, &health, &textures);
-        render::render_score(&mut framebuffer, &items, &textures);
+        render::render_score(
+            &mut framebuffer,
+            stage.number(),
+            stage.score(),
+            stage.items.carried(),
+            &textures,
+        );
 
-        if health.is_empty() {
-            render::render_game_over(&mut framebuffer, gamepad::connected(&window));
+        if let Some((art, color)) = banner(phase) {
+            render::render_banner(&mut framebuffer, art, color, gamepad::connected(&window));
         }
 
         framebuffer.present(&mut window, &raylib_thread);
+    }
+}
+
+fn restart_pressed(window: &RaylibHandle) -> bool {
+    window.is_key_pressed(KeyboardKey::KEY_R)
+        || gamepad::button_pressed(window, config::GAMEPAD_RESTART_BUTTON)
+}
+
+/// Qué sigue después de un cartel: el nivel siguiente si se terminó este, y una
+/// partida nueva desde el primero si se perdió o si ya no quedan niveles.
+fn next_run(stage: &mut Stage, phase: Phase, health: &mut Health, attack: &mut Attack) -> Phase {
+    let advanced = phase == Phase::Cleared && stage.advance(config::BLOCK_SIZE);
+
+    if phase == Phase::Cleared && !advanced {
+        return Phase::Won; // era el último nivel
+    }
+    if !advanced {
+        stage.restart(config::BLOCK_SIZE);
+    }
+
+    *health = Health::full();
+    attack.cancel();
+    Phase::Playing
+}
+
+/// Cartel que va encima de la escena congelada, o None mientras se juega.
+fn banner(phase: Phase) -> Option<(&'static [&'static str], Color)> {
+    match phase {
+        Phase::Playing => None,
+        Phase::Cleared => Some((config::LEVEL_CLEAR_ART, config::LEVEL_CLEAR_COLOR)),
+        Phase::Over => Some((config::GAME_OVER_ART, config::GAME_OVER_COLOR)),
+        Phase::Won => Some((config::VICTORY_ART, config::VICTORY_COLOR)),
     }
 }
