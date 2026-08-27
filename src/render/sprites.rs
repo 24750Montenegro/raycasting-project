@@ -14,7 +14,7 @@ struct Billboard<'a> {
     /// depth buffer de las paredes.
     depth: f32,
     top_left: Vector2,
-    size: f32,
+    size: Vector2,
     light: f32,
     fog: [f32; 3],
 }
@@ -79,7 +79,9 @@ fn project<'a>(
 
     let block = block_size as f32;
     let cell = (block / depth) * projection; // lo que mide una celda a esa distancia
-    let size = cell * config::ENEMY_SIZE;
+    let height = cell * config::ENEMY_SIZE;
+    // el enemigo es angosto: el alto manda y el ancho sale de su proporción
+    let size = Vector2::new(height * config::ENEMY_ASPECT, height);
     let center_x = half_width + (lateral / depth) * projection;
     // apoyado en el piso, que es donde termina la pared de esa misma celda
     let floor = horizon + cell / 2.0;
@@ -90,7 +92,7 @@ fn project<'a>(
     Some(Billboard {
         texture: textures.enemy(kind),
         depth,
-        top_left: Vector2::new(center_x - size / 2.0, floor - size),
+        top_left: Vector2::new(center_x - size.x / 2.0, floor - size.y),
         size,
         light: shading::sprite_light(distance) * (1.0 - fog),
         fog: [
@@ -103,9 +105,11 @@ fn project<'a>(
 
 fn draw(framebuffer: &mut Framebuffer, billboard: &Billboard, depth_buffer: &[f32]) {
     let first_x = billboard.top_left.x.floor().max(0.0) as i32;
-    let last_x = (billboard.top_left.x + billboard.size).ceil().min(framebuffer.width as f32) as i32;
+    let last_x = (billboard.top_left.x + billboard.size.x)
+        .ceil()
+        .min(framebuffer.width as f32) as i32;
     let first_y = billboard.top_left.y.floor().max(0.0) as i32;
-    let last_y = (billboard.top_left.y + billboard.size)
+    let last_y = (billboard.top_left.y + billboard.size.y)
         .ceil()
         .min(framebuffer.height as f32) as i32;
 
@@ -114,10 +118,10 @@ fn draw(framebuffer: &mut Framebuffer, billboard: &Billboard, depth_buffer: &[f3
         if depth_buffer[x as usize] <= billboard.depth {
             continue;
         }
-        let u = (x as f32 + 0.5 - billboard.top_left.x) / billboard.size;
+        let u = (x as f32 + 0.5 - billboard.top_left.x) / billboard.size.x;
 
         for y in first_y..last_y {
-            let v = (y as f32 + 0.5 - billboard.top_left.y) / billboard.size;
+            let v = (y as f32 + 0.5 - billboard.top_left.y) / billboard.size.y;
             let texel = match billboard.texture {
                 Some(texture) => texture.sample(u, v),
                 None => config::ENEMY_COLOR,

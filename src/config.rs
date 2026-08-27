@@ -85,10 +85,15 @@ pub const ENEMY_TEXTURES: &[(char, Option<&str>)] = &[('e', None)];
 pub const ENEMY_COLOR: Color = Color::new(196, 38, 38, 255);
 /// Velocidad con la que persiguen, en píxeles del mundo por segundo.
 pub const ENEMY_SPEED: f32 = 85.0;
-/// Radio del enemigo, para chocar con las paredes y con el jugador.
-pub const ENEMY_RADIUS: f32 = 12.0;
-/// Alto del sprite como fracción de una celda.
-pub const ENEMY_SIZE: f32 = 0.7;
+/// Radio del enemigo, para chocar con las paredes y con el jugador. Tiene que
+/// ser lo bastante chico como para poder cruzarse con el jugador dentro de un
+/// pasillo: hace falta que 2 * (ENEMY_RADIUS + PLAYER_RADIUS) < BLOCK_SIZE.
+pub const ENEMY_RADIUS: f32 = 6.5;
+/// Alto del sprite como fracción de una celda...
+pub const ENEMY_SIZE: f32 = 0.75;
+/// ...y ancho como fracción de ese alto: <1 deja una figura angosta, acorde al
+/// poco lugar que ocupa el enemigo en el mundo.
+pub const ENEMY_ASPECT: f32 = 0.42;
 /// Lado máximo al que se reescalan los sprites y las hojas al cargarlos.
 pub const SPRITE_MAX_SIZE: u32 = 128;
 /// Alfa por debajo del cual un píxel de sprite se considera vacío.
