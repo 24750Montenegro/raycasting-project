@@ -69,7 +69,7 @@ fn main() {
     };
     let sounds = audio.as_ref().map(Sounds::load);
 
-    let textures = TextureManager::load();
+    let mut textures = TextureManager::load();
     let mut framebuffer = Framebuffer::new(
         &mut window,
         &raylib_thread,
@@ -114,6 +114,7 @@ fn main() {
                 dt,
             );
             stage.items.update(stage.player.pos, dt, &mut events);
+            textures.animate(dt);
 
             // la rama corre solo mientras se estaba jugando, así que cada aviso
             // sale una vez y no en cada cuadro del cartel

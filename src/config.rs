@@ -84,13 +84,49 @@ pub const LIGHT_VERTICAL_FACE: f32 = 1.0;
 pub const LIGHT_HORIZONTAL_FACE: f32 = 0.62;
 
 // ── Texturas ─────────────────────────────────────────────────────────────
-/// Textura de cada carácter del laberinto, con cuántas veces se repite dentro
-/// de una celda en cada eje: 1.0 deja la imagen entera cubriendo la cara, 4.0
-/// la mosaica 4x4. Los caracteres que no aparezcan se pintan con el color plano
-/// de render::cell_color.
-pub const WALL_TEXTURES: &[(char, &str, f32)] = &[
-    ('-', "assets/netherbrick.webp", 4.0),
-    ('+', "assets/obsidian.jpg", 4.0),
+/// La textura de un carácter del laberinto. Los caracteres que no tengan
+/// entrada se pintan con el color plano de render::cell_color.
+pub struct WallTexture {
+    pub cell: char,
+    /// Una imagen suelta, o la hoja con los cuadros de la animación uno al lado
+    /// del otro cuando `frames` es mayor que 1. Un video se convierte en esa
+    /// hoja con tools/video_to_sheet.py: el render muestrea texturas que ya
+    /// están en RAM, así que no hay nada que decodificar en tiempo real.
+    pub path: &'static str,
+    /// Cuántas veces se repite dentro de una celda en cada eje: 1.0 deja la
+    /// imagen entera cubriendo la cara, 4.0 la mosaica 4x4.
+    pub tiles: f32,
+    /// Cuántos cuadros hay en la hoja. 1 es una textura quieta.
+    pub frames: usize,
+    /// A cuántos cuadros por segundo se recorre la hoja, siempre en bucle. En 0
+    /// se queda en el primero.
+    pub fps: f32,
+}
+
+pub const WALL_TEXTURES: &[WallTexture] = &[
+    WallTexture {
+        cell: '-',
+        path: "assets/netherbrick.webp",
+        tiles: 4.0,
+        frames: 1,
+        fps: 0.0,
+    },
+    WallTexture {
+        cell: '+',
+        path: "assets/obsidian.jpg",
+        tiles: 4.0,
+        frames: 1,
+        fps: 0.0,
+    },
+    // el clip original va a 30 fps, pero son tres cuadros: a esa velocidad el
+    // bucle entero dura 0.1 s y la pared parpadea en vez de animarse
+    WallTexture {
+        cell: '#',
+        path: "assets/dog-knife.png",
+        tiles: 1.0,
+        frames: 3,
+        fps: 12.0,
+    },
 ];
 /// Lado máximo al que se reescalan las texturas al cargarlas. Bajarlo también
 /// acelera el render: cuanto más chica la textura, mejor cae en caché.

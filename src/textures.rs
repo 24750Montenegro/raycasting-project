@@ -145,10 +145,24 @@ impl TextureColumn<'_> {
     }
 }
 
-/// Una textura de pared con su propio mosaico.
+/// Una textura de pared con su propio mosaico. Los cuadros de una hoja animada
+/// se recorren en bucle; una imagen suelta es el caso de un solo cuadro.
 struct Wall {
-    texture: Texture,
+    frames: Vec<Texture>,
     tiles: f32,
+    fps: f32,
+}
+
+impl Wall {
+    /// Cuadro que toca mostrar a los `clock` segundos. Sin animación —un solo
+    /// cuadro o fps en 0— siempre es el primero.
+    fn frame(&self, clock: f32) -> Option<&Texture> {
+        if self.frames.len() < 2 || self.fps <= 0.0 {
+            return self.frames.first();
+        }
+        let index = (clock * self.fps) as usize % self.frames.len();
+        self.frames.get(index)
+    }
 }
 
 /// Todas las imagenes del juego cargadas en RAM: paredes, sprites de enemigos y
@@ -159,15 +173,28 @@ pub struct TextureManager {
     items: HashMap<char, Texture>,
     hearts: Vec<Texture>,
     weapon: Vec<Texture>,
+    /// Segundos corridos de las paredes animadas. Vive acá y no en el render
+    /// para que dibujar el mundo siga siendo una función de solo lectura.
+    clock: f32,
 }
 
 impl TextureManager {
     pub fn load() -> Self {
         let walls = config::WALL_TEXTURES
             .iter()
-            .filter_map(|&(cell, path, tiles)| {
-                Texture::load(path, config::TEXTURE_MAX_SIZE)
-                    .map(|texture| (cell, Wall { texture, tiles }))
+            .filter_map(|wall| {
+                let frames = load_strip(wall.path, wall.frames, config::TEXTURE_MAX_SIZE);
+                if frames.is_empty() {
+                    return None; // sin imagen la pared cae al color plano
+                }
+                Some((
+                    wall.cell,
+                    Wall {
+                        frames,
+                        tiles: wall.tiles,
+                        fps: wall.fps,
+                    },
+                ))
             })
             .collect();
 
@@ -195,15 +222,22 @@ impl TextureManager {
             weapon: config::ATTACK_SHEET
                 .map(|sheet| load_frames(sheet, config::ATTACK_FRAMES))
                 .unwrap_or_default(),
+            clock: 0.0,
         }
     }
 
+    /// Corre el reloj de las paredes animadas. Va con el resto de la simulación
+    /// y no con el dibujo, así lo que congela al mundo también las congela.
+    pub fn animate(&mut self, dt: f32) {
+        self.clock += dt;
+    }
+
     /// Franja de textura de la pared `cell` en la coordenada `u` de su cara,
-    /// repetida las veces que pida su entrada en WALL_TEXTURES.
+    /// repetida las veces que pida su entrada en WALL_TEXTURES. Si la pared es
+    /// animada sale del cuadro que toca en este instante.
     pub fn wall_column(&self, cell: char, u: f32) -> Option<TextureColumn<'_>> {
-        self.walls
-            .get(&cell)
-            .map(|wall| wall.texture.column(u, wall.tiles))
+        let wall = self.walls.get(&cell)?;
+        Some(wall.frame(self.clock)?.column(u, wall.tiles))
     }
 
     /// Sprite del enemigo `kind`, o None si esa entrada no tiene textura y hay
@@ -227,6 +261,33 @@ impl TextureManager {
     pub fn weapon(&self, frame: usize) -> Option<&Texture> {
         self.weapon.get(frame)
     }
+}
+
+/// Parte una hoja de pared en cuadros horizontales iguales. A diferencia de
+/// load_frames no recorta nada: el cuadro de un video cubre su celda entera y
+/// recortarlo por alfa movería la imagen de un cuadro al siguiente.
+fn load_strip(path: &str, frames: usize, limit: u32) -> Vec<Texture> {
+    let sheet = match image::open(path) {
+        Ok(image) => image.to_rgba8(),
+        Err(e) => {
+            eprintln!("Error al cargar la textura {}: {}", path, e);
+            return Vec::new();
+        }
+    };
+
+    let frames = frames.max(1) as u32;
+    let cell = sheet.width() / frames;
+    if cell == 0 {
+        eprintln!("La hoja {} no llega a {} cuadros de ancho", path, frames);
+        return Vec::new();
+    }
+
+    (0..frames)
+        .map(|frame| {
+            let cut = imageops::crop_imm(&sheet, frame * cell, 0, cell, sheet.height());
+            Texture::from_image(cut.to_image(), limit)
+        })
+        .collect()
 }
 
 /// Parte una hoja de sprites en cuadros horizontales. Los cuadros se recortan
@@ -295,5 +356,79 @@ fn wrap(index: i32, size: i32) -> i32 {
         index - size
     } else {
         index
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// El ancho de la hoja tiene que ser múltiplo exacto de los cuadros que
+    /// declara la tabla. Si no coincide, load_strip parte por donde no va y la
+    /// pared se ve corrida sin que nada avise.
+    #[test]
+    fn las_hojas_de_pared_se_parten_en_cuadros_exactos() {
+        for wall in config::WALL_TEXTURES {
+            let (width, _) = image::image_dimensions(wall.path)
+                .unwrap_or_else(|e| panic!("no se pudo leer {}: {}", wall.path, e));
+
+            assert_eq!(
+                width as usize % wall.frames.max(1),
+                0,
+                "{} mide {} de ancho y no se parte en {} cuadros",
+                wall.path,
+                width,
+                wall.frames
+            );
+        }
+    }
+
+    /// Una pared animada tiene que mostrar otra imagen al pasar el tiempo de un
+    /// cuadro, y volver a la primera al completar el bucle.
+    #[test]
+    fn la_pared_animada_avanza_y_vuelve_a_empezar() {
+        let Some(animated) = config::WALL_TEXTURES
+            .iter()
+            .find(|wall| wall.frames > 1 && wall.fps > 0.0)
+        else {
+            return; // no hay ninguna pared animada configurada
+        };
+        let mut textures = TextureManager::load();
+
+        let first = brightness(&textures, animated.cell);
+        textures.animate(1.0 / animated.fps);
+        let second = brightness(&textures, animated.cell);
+        assert_ne!(
+            first, second,
+            "la pared {} no cambió de cuadro",
+            animated.cell
+        );
+
+        // lo que queda del bucle, para caer de nuevo en el primer cuadro
+        textures.animate((animated.frames - 1) as f32 / animated.fps);
+        assert_eq!(
+            first,
+            brightness(&textures, animated.cell),
+            "el bucle no cerró"
+        );
+    }
+
+    /// Suma de los canales de una grilla de muestras de la pared `cell`: alcanza
+    /// para distinguir un cuadro de otro sin depender de un píxel puntual.
+    fn brightness(textures: &TextureManager, cell: char) -> i64 {
+        let steps = 8;
+        let mut total = 0i64;
+
+        for x in 0..steps {
+            let column = textures
+                .wall_column(cell, (x as f32 + 0.5) / steps as f32)
+                .expect("la pared no tiene textura cargada");
+
+            for y in 0..steps {
+                let texel = column.at((y as f32 + 0.5) / steps as f32);
+                total += texel.iter().map(|c| *c as i64).sum::<i64>();
+            }
+        }
+        total
     }
 }
