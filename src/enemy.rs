@@ -1,4 +1,5 @@
 use crate::config;
+use crate::events::{Events, GameEvent};
 use crate::health::Health;
 use crate::maze::{collides, take_spawns, Maze};
 use raylib::prelude::*;
@@ -41,6 +42,7 @@ impl Enemies {
         maze: &Maze,
         target: Vector2,
         health: &mut Health,
+        events: &mut Events,
         block_size: usize,
         dt: f32,
     ) {
@@ -49,8 +51,10 @@ impl Enemies {
         for enemy in self.enemies.iter_mut() {
             enemy.chase(maze, target, reach, block_size, dt);
 
-            if (target - enemy.pos).length() <= reach {
-                health.take_hit();
+            // take_hit devuelve false mientras corra la invulnerabilidad, así
+            // que el evento sale solo cuando el golpe entró de verdad
+            if (target - enemy.pos).length() <= reach && health.take_hit() {
+                events.push(GameEvent::PlayerHurt);
             }
         }
     }

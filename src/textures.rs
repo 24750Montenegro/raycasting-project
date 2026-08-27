@@ -156,6 +156,7 @@ struct Wall {
 pub struct TextureManager {
     walls: HashMap<char, Wall>,
     enemies: HashMap<char, Texture>,
+    items: HashMap<char, Texture>,
     hearts: Vec<Texture>,
 }
 
@@ -177,9 +178,18 @@ impl TextureManager {
             })
             .collect();
 
+        let items = config::ITEM_TEXTURES
+            .iter()
+            .filter_map(|&(cell, path)| {
+                let texture = Texture::load(path?, config::SPRITE_MAX_SIZE)?;
+                Some((cell, texture))
+            })
+            .collect();
+
         TextureManager {
             walls,
             enemies,
+            items,
             hearts: load_frames(config::HEART_SHEET, config::HEART_FRAMES),
         }
     }
@@ -196,6 +206,12 @@ impl TextureManager {
     /// que dibujarlo con ENEMY_COLOR.
     pub fn enemy(&self, kind: char) -> Option<&Texture> {
         self.enemies.get(&kind)
+    }
+
+    /// Sprite del objeto `kind`, o None si esa entrada todavía no tiene
+    /// imagen y hay que dibujarlo con ITEM_COLOR.
+    pub fn item(&self, kind: char) -> Option<&Texture> {
+        self.items.get(&kind)
     }
 
     pub fn heart(&self, frame: usize) -> Option<&Texture> {

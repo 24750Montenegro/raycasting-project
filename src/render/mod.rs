@@ -1,3 +1,4 @@
+mod font;
 mod game_over;
 mod hud;
 mod minimap;
@@ -6,9 +7,9 @@ mod sprites;
 mod world;
 
 pub use game_over::render_game_over;
-pub use hud::render_health;
+pub use hud::{render_health, render_score};
 pub use minimap::{render_minimap, MinimapMode};
-pub use sprites::render_enemies;
+pub use sprites::render_sprites;
 pub use world::render_world;
 
 use raylib::prelude::*;

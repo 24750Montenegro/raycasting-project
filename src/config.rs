@@ -102,6 +102,47 @@ pub const SPRITE_ALPHA_CUTOFF: u8 = 8;
 /// Más cerca que esto el tamaño se dispara y no queda nada útil en pantalla.
 pub const SPRITE_NEAR_PLANE: f32 = 6.0;
 
+// ── Objetos y entrega ────────────────────────────────────────────────────
+/// Objetos que se juntan: carácter en el laberinto -> textura del sprite.
+/// Igual que los enemigos, estas celdas son piso: el objeto aparece ahí y la
+/// celda queda libre. Sin textura (None) se dibujan con ITEM_COLOR.
+pub const ITEM_TEXTURES: &[(char, Option<&str>)] = &[('c', None)];
+pub const ITEM_COLOR: Color = Color::new(240, 196, 62, 255);
+/// Alto del sprite como fracción de una celda y ancho como fracción del alto.
+pub const ITEM_SIZE: f32 = 0.3;
+pub const ITEM_ASPECT: f32 = 1.0;
+/// Distancia a la que se levanta un objeto, sumada al radio del jugador.
+pub const ITEM_PICKUP_RADIUS: f32 = 12.0;
+/// Cuántos se pueden llevar a la vez: obliga a volver a la meta a descargar.
+pub const ITEM_CARRY_LIMIT: u32 = 3;
+/// Puntos que da cada objeto al entregarlo.
+pub const ITEM_SCORE: u32 = 100;
+/// Flote del sprite: altura sobre el piso en fracción de celda, amplitud y
+/// velocidad del vaivén, y desfase entre un objeto y el siguiente.
+pub const ITEM_LIFT: f32 = 0.34;
+pub const ITEM_BOB_AMPLITUDE: f32 = 0.05;
+pub const ITEM_BOB_SPEED: f32 = 2.6;
+pub const ITEM_BOB_OFFSET: f32 = 1.1;
+
+/// Celda donde se entrega lo recolectado, y a qué distancia de su centro cuenta
+/// como entregado. La meta sigue siendo pared, así que alcanza con arrimarse:
+/// el jugador nunca puede estar a menos de BLOCK_SIZE / 2 + PLAYER_RADIUS.
+pub const GOAL_CELL: char = 'g';
+pub const GOAL_REACH: f32 = 42.0;
+pub const GOAL_COLOR: Color = Color::new(96, 214, 120, 255);
+
+// ── Marcador ─────────────────────────────────────────────────────────────
+/// Lado del bloque con el que se dibujan los dígitos del puntaje y del contador
+/// de objetos en mano, y margen desde el borde de la pantalla.
+pub const SCORE_BLOCK: f32 = 6.0;
+pub const SCORE_MARGIN: f32 = 20.0;
+pub const SCORE_COLOR: Color = Color::new(238, 232, 220, 255);
+/// Contador de lo que se lleva encima: tamaño del ícono, separación con el
+/// número y bloque de sus dígitos.
+pub const CARRY_ICON_SIZE: f32 = 18.0;
+pub const CARRY_SPACING: f32 = 10.0;
+pub const CARRY_BLOCK: f32 = 5.0;
+
 // ── Vida ─────────────────────────────────────────────────────────────────
 /// Corazones del HUD. Cada uno aguanta dos golpes.
 pub const HEART_SLOTS: u32 = 5;

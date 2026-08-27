@@ -2,14 +2,31 @@ use super::shading;
 use crate::config;
 use crate::enemy::Enemies;
 use crate::framebuffer::Framebuffer;
+use crate::items::Items;
 use crate::player::Player;
 use crate::textures::{Texture, TextureManager};
 use raylib::prelude::*;
 
-/// Un enemigo ya proyectado a pantalla. La luz y la niebla vienen colapsadas en
+/// Una cosa del mundo que se dibuja mirando siempre a la cámara. Enemigos y
+/// objetos solo se diferencian en estos datos, así que comparten el proyectado,
+/// el orden por profundidad y el recorte contra las paredes.
+struct Sprite<'a> {
+    pos: Vector2,
+    texture: Option<&'a Texture>,
+    /// Color plano mientras esa entrada no tenga textura.
+    color: Color,
+    /// Alto como fracción de una celda, y ancho como fracción de ese alto.
+    height: f32,
+    aspect: f32,
+    /// Cuánto se despega del piso, en fracción de una celda.
+    lift: f32,
+}
+
+/// Un sprite ya proyectado a pantalla. La luz y la niebla vienen colapsadas en
 /// una recta por canal, igual que en las paredes.
 struct Billboard<'a> {
     texture: Option<&'a Texture>,
+    color: Color,
     /// Distancia sobre el eje de la cámara, que es contra la que se compara el
     /// depth buffer de las paredes.
     depth: f32,
@@ -19,9 +36,10 @@ struct Billboard<'a> {
     fog: [f32; 3],
 }
 
-pub fn render_enemies(
+pub fn render_sprites(
     framebuffer: &mut Framebuffer,
     enemies: &Enemies,
+    items: &Items,
     player: &Player,
     textures: &TextureManager,
     depth_buffer: &[f32],
@@ -31,20 +49,27 @@ pub fn render_enemies(
     let horizon = framebuffer.height as f32 / 2.0;
     let projection = half_width / (player.fov / 2.0).tan();
 
+    let enemies = enemies.iter().map(|enemy| Sprite {
+        pos: enemy.pos,
+        texture: textures.enemy(enemy.kind),
+        color: config::ENEMY_COLOR,
+        height: config::ENEMY_SIZE,
+        aspect: config::ENEMY_ASPECT,
+        lift: 0.0,
+    });
+    let clock = items.clock();
+    let loose = items.loose().map(|item| Sprite {
+        pos: item.pos,
+        texture: textures.item(item.kind),
+        color: config::ITEM_COLOR,
+        height: config::ITEM_SIZE,
+        aspect: config::ITEM_ASPECT,
+        lift: item.lift(clock),
+    });
+
     let mut visible: Vec<Billboard> = enemies
-        .iter()
-        .filter_map(|enemy| {
-            project(
-                enemy.pos,
-                enemy.kind,
-                player,
-                textures,
-                half_width,
-                horizon,
-                projection,
-                block_size,
-            )
-        })
+        .chain(loose)
+        .filter_map(|sprite| project(&sprite, player, half_width, horizon, projection, block_size))
         .collect();
 
     // de atrás hacia adelante, para que el de adelante tape al de atrás
@@ -55,18 +80,15 @@ pub fn render_enemies(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 fn project<'a>(
-    pos: Vector2,
-    kind: char,
+    sprite: &Sprite<'a>,
     player: &Player,
-    textures: &'a TextureManager,
     half_width: f32,
     horizon: f32,
     projection: f32,
     block_size: usize,
 ) -> Option<Billboard<'a>> {
-    let offset = pos - player.pos;
+    let offset = sprite.pos - player.pos;
     let (sin, cos) = player.angle.sin_cos();
 
     // el offset rotado -angle: x queda hacia adelante, y hacia el costado
@@ -79,18 +101,21 @@ fn project<'a>(
 
     let block = block_size as f32;
     let cell = (block / depth) * projection; // lo que mide una celda a esa distancia
-    let height = cell * config::ENEMY_SIZE;
-    // el enemigo es angosto: el alto manda y el ancho sale de su proporción
-    let size = Vector2::new(height * config::ENEMY_ASPECT, height);
+    let height = cell * sprite.height;
+    // el alto manda y el ancho sale de su proporción: así un cuerpo angosto se
+    // dibuja angosto sin tener que tocarle el alto
+    let size = Vector2::new(height * sprite.aspect, height);
     let center_x = half_width + (lateral / depth) * projection;
-    // apoyado en el piso, que es donde termina la pared de esa misma celda
-    let floor = horizon + cell / 2.0;
+    // apoyado en el piso, que es donde termina la pared de esa misma celda, y
+    // levantado lo que pida el sprite
+    let floor = horizon + cell / 2.0 - cell * sprite.lift;
 
     let distance = depth / block;
     let fog = shading::fog_factor(distance);
 
     Some(Billboard {
-        texture: textures.enemy(kind),
+        texture: sprite.texture,
+        color: sprite.color,
         depth,
         top_left: Vector2::new(center_x - size.x / 2.0, floor - size.y),
         size,
@@ -114,7 +139,7 @@ fn draw(framebuffer: &mut Framebuffer, billboard: &Billboard, depth_buffer: &[f3
         .min(framebuffer.height as f32) as i32;
 
     for x in first_x..last_x {
-        // si la pared de esa columna está más cerca, el enemigo queda tapado
+        // si la pared de esa columna está más cerca, el sprite queda tapado
         if depth_buffer[x as usize] <= billboard.depth {
             continue;
         }
@@ -124,7 +149,7 @@ fn draw(framebuffer: &mut Framebuffer, billboard: &Billboard, depth_buffer: &[f3
             let v = (y as f32 + 0.5 - billboard.top_left.y) / billboard.size.y;
             let texel = match billboard.texture {
                 Some(texture) => texture.sample(u, v),
-                None => config::ENEMY_COLOR,
+                None => billboard.color,
             };
 
             if texel.a <= config::SPRITE_ALPHA_CUTOFF {
