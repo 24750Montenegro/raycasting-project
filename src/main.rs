@@ -1,4 +1,5 @@
 mod attack;
+mod audio;
 mod caster;
 mod config;
 mod enemy;
@@ -13,6 +14,7 @@ mod render;
 mod textures;
 
 use attack::Attack;
+use audio::Sounds;
 use enemy::Enemies;
 use events::{Events, GameEvent};
 use framebuffer::Framebuffer;
@@ -42,6 +44,12 @@ fn main() {
     let mut health = Health::full();
     let mut attack = Attack::new();
     let mut events = Events::new();
+
+    // sin dispositivo de audio el juego sigue andando, mudo
+    let audio = RaylibAudio::init_audio_device()
+        .inspect_err(|e| eprintln!("Sin sonido: {}", e))
+        .ok();
+    let sounds = audio.as_ref().map(Sounds::load);
 
     let textures = TextureManager::load();
     let mut framebuffer = Framebuffer::new(
@@ -108,9 +116,11 @@ fn main() {
             }
         }
 
-        // todavía nadie reacciona a los eventos: se vacían para que la cola no
-        // crezca hasta que el sonido los use
-        for _event in events.drain() {}
+        for event in events.drain() {
+            if let Some(sounds) = &sounds {
+                sounds.play(event);
+            }
+        }
 
         render::render_world(
             &mut framebuffer,

@@ -1,5 +1,6 @@
 //! Parámetros ajustables del motor. Todo lo que se quiera "tunear" vive aquí.
 
+use crate::events::GameEvent;
 use raylib::prelude::*;
 use std::f32::consts::PI;
 
@@ -110,6 +111,24 @@ pub const SPRITE_ALPHA_CUTOFF: u8 = 8;
 /// Distancia mínima a la cámara para dibujar un sprite, en píxeles del mundo.
 /// Más cerca que esto el tamaño se dispara y no queda nada útil en pantalla.
 pub const SPRITE_NEAR_PLANE: f32 = 6.0;
+
+// ── Sonido ───────────────────────────────────────────────────────────────
+/// Qué suena en cada evento. El archivo que todavía no exista se saltea, así
+/// que la tabla ya puede nombrar los sonidos que faltan: apenas aparezca el
+/// .wav en esa ruta empieza a sonar solo. Un mismo evento admite una sola
+/// entrada; el formato lo pone raylib (wav, ogg, mp3, flac).
+pub const SOUNDS: &[(GameEvent, &str)] = &[
+    (GameEvent::Attack, "assets/sounds/attack.wav"),
+    (GameEvent::EnemyHit, "assets/sounds/enemy_hit.wav"),
+    (GameEvent::EnemyDown, "assets/sounds/enemy_down.wav"),
+    (GameEvent::ItemPickup, "assets/sounds/pickup.wav"),
+    (GameEvent::ItemDeliver, "assets/sounds/deliver.wav"),
+    (GameEvent::PlayerHurt, "assets/sounds/hurt.wav"),
+    (GameEvent::PlayerDown, "assets/sounds/game_over.wav"),
+    (GameEvent::LevelClear, "assets/sounds/level_clear.wav"),
+];
+/// Volumen con el que se reproducen, de 0 a 1.
+pub const SOUND_VOLUME: f32 = 0.8;
 
 // ── Ataque ───────────────────────────────────────────────────────────────
 /// Con qué se pega: botón del mouse y botón del control.
