@@ -45,10 +45,20 @@ fn main() {
     let mut attack = Attack::new();
     let mut events = Events::new();
 
-    // sin dispositivo de audio el juego sigue andando, mudo
-    let audio = RaylibAudio::init_audio_device()
-        .inspect_err(|e| eprintln!("Sin sonido: {}", e))
-        .ok();
+    // sin dispositivo de audio el juego sigue andando, mudo. init_audio_device
+    // devuelve Ok aunque el backend no haya podido abrir la placa, asi que hace
+    // falta preguntarle al dispositivo si de verdad quedo listo
+    let audio = match RaylibAudio::init_audio_device() {
+        Ok(audio) if audio.is_audio_device_ready() => Some(audio),
+        Ok(_) => {
+            eprintln!("Sin sonido: el dispositivo de audio no arranco");
+            None
+        }
+        Err(e) => {
+            eprintln!("Sin sonido: {}", e);
+            None
+        }
+    };
     let sounds = audio.as_ref().map(Sounds::load);
 
     let textures = TextureManager::load();
