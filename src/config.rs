@@ -127,6 +127,14 @@ pub const WALL_TEXTURES: &[WallTexture] = &[
         frames: 3,
         fps: 12.0,
     },
+
+    WallTexture {
+        cell: '|',
+        path: "assets/netherbrick.jpg",
+        tiles: 4.0,
+        frames: 1,
+        fps: 0.0,
+    }
 ];
 /// Lado máximo al que se reescalan las texturas al cargarlas. Bajarlo también
 /// acelera el render: cuanto más chica la textura, mejor cae en caché.
