@@ -90,7 +90,7 @@ pub const LIGHT_HORIZONTAL_FACE: f32 = 0.62;
 /// de render::cell_color.
 pub const WALL_TEXTURES: &[(char, &str, f32)] = &[
     ('-', "assets/netherbrick.webp", 4.0),
-    ('+', "assets/netherbrick.jpg", 1.0),
+    ('+', "assets/obsidian.jpg", 4.0),
 ];
 /// Lado máximo al que se reescalan las texturas al cargarlas. Bajarlo también
 /// acelera el render: cuanto más chica la textura, mejor cae en caché.
