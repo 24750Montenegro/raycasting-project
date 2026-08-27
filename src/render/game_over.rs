@@ -5,14 +5,23 @@ use raylib::prelude::*;
 /// Cartel de game over sobre la escena congelada. El arte llega desde config
 /// como líneas de texto: cada carácter distinto de espacio se pinta como un
 /// bloque, así que se puede reescribir el dibujo sin tocar esto.
-pub fn render_game_over(framebuffer: &mut Framebuffer) {
+///
+/// `gamepad` dice si hay un control conectado: la leyenda nombra el botón o la
+/// tecla según con qué se esté jugando.
+pub fn render_game_over(framebuffer: &mut Framebuffer, gamepad: bool) {
     let width = framebuffer.width as f32;
     let height = framebuffer.height as f32;
 
     framebuffer.blend_rect(0, 0, width as i32, height as i32, config::GAME_OVER_VEIL);
 
+    let hint_art = if gamepad {
+        config::GAME_OVER_HINT_GAMEPAD
+    } else {
+        config::GAME_OVER_HINT
+    };
+
     let title = measure(config::GAME_OVER_ART, width, config::GAME_OVER_FILL);
-    let hint = measure(config::GAME_OVER_HINT, width, config::GAME_OVER_HINT_FILL);
+    let hint = measure(hint_art, width, config::GAME_OVER_HINT_FILL);
 
     // los dos bloques se centran juntos, no cada uno por su lado
     let gap = height * config::GAME_OVER_GAP;
@@ -21,7 +30,7 @@ pub fn render_game_over(framebuffer: &mut Framebuffer) {
 
     draw(framebuffer, config::GAME_OVER_ART, &title, width, top, config::GAME_OVER_COLOR);
     top += title.height() + gap;
-    draw(framebuffer, config::GAME_OVER_HINT, &hint, width, top, config::GAME_OVER_HINT_COLOR);
+    draw(framebuffer, hint_art, &hint, width, top, config::GAME_OVER_HINT_COLOR);
 }
 
 /// Tamaño de bloque con el que un arte ocupa `fill` del ancho de la pantalla.

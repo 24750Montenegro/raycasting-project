@@ -141,6 +141,15 @@ pub const GAME_OVER_HINT: &[&str] = &[
     "#    #  # #       # #  #    # # ",
     "#     ##  #### ###  #  #    #  #",
 ];
+/// La misma leyenda para cuando hay un control conectado: cambia la tecla por
+/// el botón de GAMEPAD_RESTART_BUTTON.
+pub const GAME_OVER_HINT_GAMEPAD: &[&str] = &[
+    "###  #  # #     ###  ##      ## ",
+    "#  # #  # #    #    #  #    #  #",
+    "###  #  # #     ##  ####    ####",
+    "#    #  # #       # #  #    #  #",
+    "#     ##  #### ###  #  #    #  #",
+];
 /// Fracción del ancho de la pantalla que ocupan el cartel y su leyenda.
 pub const GAME_OVER_FILL: f32 = 0.62;
 pub const GAME_OVER_HINT_FILL: f32 = 0.3;

@@ -96,7 +96,7 @@ fn main() {
         render::render_health(&mut framebuffer, &health, &textures);
 
         if health.is_empty() {
-            render::render_game_over(&mut framebuffer);
+            render::render_game_over(&mut framebuffer, gamepad::connected(&window));
         }
 
         framebuffer.present(&mut window, &raylib_thread);
