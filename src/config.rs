@@ -19,6 +19,23 @@ pub const ROTATION_SPEED: f32 = PI / 1.5;
 pub const MOUSE_SENSITIVITY: f32 = 0.002;
 pub const PLAYER_RADIUS: f32 = 10.0;
 
+// ── Control (gamepad) ────────────────────────────────────────────────────
+/// Puerto del control. 0 es el primero que se conecta.
+pub const GAMEPAD_ID: i32 = 0;
+/// Zona muerta de los sticks, en fracción del recorrido. Sube si el personaje
+/// se mueve solo con el stick en reposo.
+pub const GAMEPAD_DEADZONE: f32 = 0.18;
+/// Giro del stick derecho a fondo, en radianes por segundo.
+pub const GAMEPAD_LOOK_SPEED: f32 = PI;
+/// Exponente de la respuesta del stick derecho: >1 achica el giro cerca del
+/// centro y deja la velocidad máxima solo al final del recorrido.
+pub const GAMEPAD_LOOK_EXPO: f32 = 2.0;
+/// Invertir el eje horizontal de la cámara.
+pub const GAMEPAD_INVERT_LOOK: bool = false;
+/// Botones del control: abrir el minimapa y reiniciar tras el game over.
+pub const GAMEPAD_MINIMAP_BUTTON: GamepadButton = GamepadButton::GAMEPAD_BUTTON_RIGHT_FACE_UP;
+pub const GAMEPAD_RESTART_BUTTON: GamepadButton = GamepadButton::GAMEPAD_BUTTON_RIGHT_FACE_DOWN;
+
 // ── Raycaster ────────────────────────────────────────────────────────────
 /// Paso del ray march, en celdas. Más chico = menos riesgo de saltarse una pared.
 pub const RAY_STEP: f32 = 0.2;
