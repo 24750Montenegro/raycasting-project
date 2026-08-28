@@ -99,13 +99,16 @@ impl Items {
         self.score
     }
 
-    /// Los que todavía no llegaron a la meta, lleve el jugador o no.
-    pub fn pending(&self) -> u32 {
+    /// Los que se quedaron sin rescatar: el nivel termina en cuanto se entrega,
+    /// así que todo lo que no se llevó a la meta se pierde ahí.
+    pub fn left_behind(&self) -> u32 {
         self.items.len() as u32 - self.delivered
     }
 
-    pub fn all_delivered(&self) -> bool {
-        !self.items.is_empty() && self.pending() == 0
+    /// Si ya se entregó, que es lo que termina el nivel. Llegar a la meta con
+    /// las manos vacías no cuenta: hay que rescatar aunque sea uno.
+    pub fn cleared(&self) -> bool {
+        self.delivered > 0
     }
 
     /// Dónde hay que entregar, para marcarlo en el minimapa.
@@ -122,14 +125,13 @@ impl Items {
         self.deliver(player_pos, events);
     }
 
-    /// Levanta lo que se pise, hasta llenar las manos.
+    /// Levanta todo lo que se pise. No hay tope: lo único que decide cuándo
+    /// volver a la meta es el riesgo de seguir dando vueltas, porque entregar
+    /// termina el nivel y deja atrás lo que no se juntó.
     fn pick_up(&mut self, player_pos: Vector2, events: &mut Events) {
         let reach = config::ITEM_PICKUP_RADIUS + config::PLAYER_RADIUS;
 
         for item in self.items.iter_mut() {
-            if self.carried >= config::ITEM_CARRY_LIMIT {
-                return; // no entra nada más hasta descargar
-            }
             if item.state != ItemState::Loose || (player_pos - item.pos).length() > reach {
                 continue;
             }
@@ -141,7 +143,10 @@ impl Items {
         }
     }
 
-    /// Deja en la meta todo lo que se lleve encima.
+    /// Deja en la meta todo lo que se lleve encima, y con eso da el nivel por
+    /// terminado: lo que haya quedado dando vueltas por el mapa se pierde. De
+    /// ahí sale la decisión de todo el nivel, porque juntarlos a todos es
+    /// cruzarse con todos los bichos.
     fn deliver(&mut self, player_pos: Vector2, events: &mut Events) {
         if self.carried == 0 || !self.at_goal(player_pos) {
             return;
@@ -157,10 +162,7 @@ impl Items {
         self.delivered += self.carried;
         self.carried = 0;
         events.push(GameEvent::ItemDeliver);
-
-        if self.all_delivered() {
-            events.push(GameEvent::LevelClear);
-        }
+        events.push(GameEvent::LevelClear);
     }
 
     fn at_goal(&self, player_pos: Vector2) -> bool {
@@ -208,6 +210,60 @@ mod tests {
             items.update(on_top, dt, &mut events);
         }
         assert!(items.cheer().is_none(), "el festejo no terminó nunca");
+    }
+
+    /// Entregar termina el nivel aunque queden pájaros dando vueltas, y los
+    /// que quedaron se cuentan: de ahí sale toda la decisión del nivel, porque
+    /// volver a buscar más es volver a cruzarse con los bichos.
+    #[test]
+    fn entregar_termina_el_nivel_y_cuenta_los_que_quedaron() {
+        let mut maze: Maze = vec![vec!['+'; 4], vec!['+'; 4], vec!['+'; 4], vec!['+'; 4]];
+        let bird = config::ITEM_TEXTURES[0].cell;
+        maze[1][1] = bird;
+        maze[1][2] = config::GOAL_CELL;
+        maze[2][1] = bird;
+
+        let block = config::BLOCK_SIZE;
+        let level = level();
+        let mut items = Items::spawn(&mut maze, &level, block);
+        let mut events = Events::new();
+
+        // encima de un pájaro y al lado de la entrega: lo levanta y lo deja
+        let on_item = Vector2::new(1.5 * block as f32, 1.5 * block as f32);
+        items.update(on_item, 0.0, &mut events);
+
+        assert!(items.cleared(), "entregar no terminó el nivel");
+        assert_eq!(items.score(), level.item_score, "no puntuó lo entregado");
+        assert_eq!(
+            items.left_behind(),
+            1,
+            "el que se quedó en el piso tiene que contar como no rescatado"
+        );
+    }
+
+    /// En la mano entran todos: no hay tope. Lo único que decide cuándo volver
+    /// a la meta es el riesgo, porque entregar termina el nivel.
+    #[test]
+    fn se_pueden_llevar_todos_los_que_se_junten() {
+        let bird = config::ITEM_TEXTURES[0].cell;
+        let mut maze: Maze = vec![
+            vec!['+'; 7],
+            vec!['+', bird, bird, bird, bird, bird, '+'],
+            vec!['+'; 7],
+        ];
+
+        let block = config::BLOCK_SIZE;
+        let mut items = Items::spawn(&mut maze, &level(), block);
+        let mut events = Events::new();
+
+        // se los va pisando uno por uno, como al caminar por el pasillo
+        for col in 1..=5 {
+            let on_item = Vector2::new((col as f32 + 0.5) * block as f32, 1.5 * block as f32);
+            items.update(on_item, 1.0 / 60.0, &mut events);
+        }
+
+        assert_eq!(items.carried(), 5, "se quedó con menos de los que pisó");
+        assert!(!items.cleared(), "sin pasar por la meta el nivel sigue");
     }
 
     fn level() -> Level {

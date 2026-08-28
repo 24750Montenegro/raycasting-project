@@ -79,3 +79,132 @@ fn level_at(index: usize) -> &'static config::Level {
         .or_else(|| config::LEVELS.last())
         .expect("config::LEVELS no puede estar vacía")
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::maze::{dimensions, is_solid};
+    use std::collections::{HashSet, VecDeque};
+
+    /// Todo nivel de la tabla se tiene que poder terminar: el mapa existe,
+    /// dice por dónde se empieza, y los pájaros y la entrega quedan del lado
+    /// alcanzable del laberinto. Es la red que sostiene agregar mapas: un
+    /// tabique de más deja un nivel sin salida y acá se ve enseguida.
+    #[test]
+    fn todos_los_niveles_se_pueden_jugar() {
+        for (index, level) in config::LEVELS.iter().enumerate() {
+            let maze = load_maze(level.maze_file);
+            let (width, height) = dimensions(&maze);
+            let cell = |col: usize, row: usize| maze[row][col];
+
+            let start = find(&maze, |c| c == 'p');
+            assert_eq!(
+                start.len(),
+                1,
+                "el nivel {} ({}) tiene {} celdas de arranque",
+                index + 1,
+                level.maze_file,
+                start.len()
+            );
+
+            // por dónde se camina: el piso y las celdas que se vacían al nacer
+            // los pájaros y los bichos
+            let spawns: HashSet<char> = config::ITEM_TEXTURES
+                .iter()
+                .map(|item| item.cell)
+                .chain(config::ENEMY_TEXTURES.iter().map(|enemy| enemy.cell))
+                .collect();
+            let walkable = |c: char| !is_solid(c) || spawns.contains(&c);
+
+            let mut seen: HashSet<(usize, usize)> = start.iter().copied().collect();
+            let mut queue: VecDeque<(usize, usize)> = seen.iter().copied().collect();
+            while let Some((col, row)) = queue.pop_front() {
+                let neighbours = [
+                    (col.wrapping_sub(1), row),
+                    (col + 1, row),
+                    (col, row.wrapping_sub(1)),
+                    (col, row + 1),
+                ];
+                for (col, row) in neighbours {
+                    if col < width && row < height && !seen.contains(&(col, row)) && walkable(cell(col, row))
+                    {
+                        seen.insert((col, row));
+                        queue.push_back((col, row));
+                    }
+                }
+            }
+
+            let birds = find(&maze, |c| config::ITEM_TEXTURES.iter().any(|item| item.cell == c));
+            assert!(
+                !birds.is_empty(),
+                "el nivel {} ({}) no tiene nada que rescatar",
+                index + 1,
+                level.maze_file
+            );
+            for bird in &birds {
+                assert!(
+                    seen.contains(bird),
+                    "en el nivel {} ({}) no se llega al pájaro de {:?}",
+                    index + 1,
+                    level.maze_file,
+                    bird
+                );
+            }
+
+            // la meta sigue siendo pared: alcanza con poder pararse al lado
+            let goals = find(&maze, |c| c == config::GOAL_CELL);
+            assert!(
+                goals.iter().any(|&(col, row)| {
+                    [
+                        (col.wrapping_sub(1), row),
+                        (col + 1, row),
+                        (col, row.wrapping_sub(1)),
+                        (col, row + 1),
+                    ]
+                    .iter()
+                    .any(|side| seen.contains(side))
+                }),
+                "en el nivel {} ({}) no hay forma de llegar a entregar",
+                index + 1,
+                level.maze_file
+            );
+        }
+    }
+
+    /// La partida tiene que recorrer los niveles de la tabla uno tras otro y
+    /// recién terminarse en el último: es lo que hace que agregar una fila a
+    /// LEVELS agregue un nivel jugable y no uno al que no se llega nunca.
+    #[test]
+    fn la_partida_recorre_todos_los_niveles() {
+        let mut stage = Stage::start(config::BLOCK_SIZE);
+        assert_eq!(stage.number(), 1);
+
+        for expected in 2..=config::LEVELS.len() as u32 {
+            assert!(
+                stage.advance(config::BLOCK_SIZE),
+                "no se pudo pasar al nivel {}",
+                expected
+            );
+            assert_eq!(stage.number(), expected, "el contador de nivel se desfasó");
+        }
+
+        assert!(
+            !stage.advance(config::BLOCK_SIZE),
+            "después del último nivel la partida tiene que terminarse"
+        );
+    }
+
+    /// Las celdas que cumplen `wanted`, como (columna, fila).
+    fn find(maze: &Maze, wanted: impl Fn(char) -> bool) -> Vec<(usize, usize)> {
+        let mut found = Vec::new();
+
+        for (row, cells) in maze.iter().enumerate() {
+            for (col, &cell) in cells.iter().enumerate() {
+                if wanted(cell) {
+                    found.push((col, row));
+                }
+            }
+        }
+        found
+    }
+}

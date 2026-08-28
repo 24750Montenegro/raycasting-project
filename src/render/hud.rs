@@ -3,7 +3,7 @@ use crate::config;
 use crate::framebuffer::Framebuffer;
 use crate::health::Health;
 use crate::items::Items;
-use crate::textures::{Texture, TextureManager};
+use crate::textures::{ItemFace, Texture, TextureManager};
 use raylib::prelude::*;
 use std::f32::consts::PI;
 
@@ -88,9 +88,7 @@ pub fn render_score(
 /// disco del color con el que se dibuja en el mundo.
 fn draw_carry_icon(framebuffer: &mut Framebuffer, textures: &TextureManager, center: Vector2) {
     let size = config::CARRY_ICON_SIZE;
-    let texture = config::ITEM_TEXTURES
-        .first()
-        .and_then(|item| textures.item(item.cell, true));
+    let texture = textures.item_face(ItemFace::Happy);
 
     match texture {
         Some(texture) => draw_icon(framebuffer, texture, center, size),
@@ -106,7 +104,7 @@ pub fn render_pickup(framebuffer: &mut Framebuffer, items: &Items, textures: &Te
     let Some((kind, progress)) = items.cheer() else {
         return; // no se levantó nada hace poco
     };
-    let Some(texture) = textures.item(kind, true) else {
+    let Some(texture) = textures.item(kind, ItemFace::Happy) else {
         return; // esa entrada no tiene cara de contento ni imagen
     };
 

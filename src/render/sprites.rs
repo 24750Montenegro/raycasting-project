@@ -4,7 +4,7 @@ use crate::enemy::Enemies;
 use crate::framebuffer::Framebuffer;
 use crate::items::Items;
 use crate::player::Player;
-use crate::textures::{Texture, TextureManager};
+use crate::textures::{ItemFace, Texture, TextureManager};
 use raylib::prelude::*;
 
 /// Una cosa del mundo que se dibuja mirando siempre a la cámara. Enemigos y
@@ -62,7 +62,7 @@ pub fn render_sprites(
         flash: enemy.flash(),
     });
     let items = items.loose().map(|item| {
-        let texture = textures.item(item.kind, false);
+        let texture = textures.item(item.kind, ItemFace::Idle);
         Sprite {
             pos: item.pos,
             texture,

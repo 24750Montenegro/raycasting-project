@@ -198,25 +198,39 @@ impl Faces {
     }
 }
 
-/// Las dos caras de un objeto: la animacion con la que espera en el piso y la
-/// de contento, que es la del rato que dura el festejo de haberlo levantado.
-/// Esta ultima se recorta aparte porque no tiene por que ocupar lo mismo —el
-/// pajaro abre las alas— y el ancho con el que se dibuja sale de la imagen.
+/// Con que cara se dibuja un objeto.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum ItemFace {
+    /// Esperando en el piso, que es la animacion en bucle.
+    Idle,
+    /// Recien levantado.
+    Happy,
+    /// Contando, al final del nivel, los que quedaron sin rescatar.
+    Sad,
+}
+
+/// Las caras de un objeto. Cada una se recorta por su lado porque no tienen por
+/// que ocupar lo mismo —el pajaro contento abre las alas— y el ancho con el que
+/// se dibuja sale de la imagen.
 struct Item {
     idle: Vec<Texture>,
     fps: f32,
     happy: Option<Texture>,
+    sad: Option<Texture>,
 }
 
 impl Item {
     fn load(item: &config::ItemTexture) -> Self {
+        let face = |path: Option<&str>| path.and_then(|path| load_frames(path, 1).pop());
+
         Item {
             idle: item
                 .idle
                 .map(|sheet| load_frames(sheet, item.frames))
                 .unwrap_or_default(),
             fps: item.fps,
-            happy: item.happy.and_then(|path| load_frames(path, 1).pop()),
+            happy: face(item.happy),
+            sad: face(item.sad),
         }
     }
 }
@@ -296,16 +310,24 @@ impl TextureManager {
         self.enemies.get(&kind)?.face(attacking)
     }
 
-    /// Sprite del objeto `kind`: la cara de contento mientras dura el festejo
-    /// de levantarlo y, si no, el cuadro que toca de su animación. None si esa
-    /// entrada no tiene imagen y hay que dibujarlo con ITEM_COLOR.
-    pub fn item(&self, kind: char, cheering: bool) -> Option<&Texture> {
+    /// Sprite del objeto `kind` con la cara pedida, que cae en la de siempre si
+    /// esa entrada no la trae. None si no tiene ninguna imagen y hay que
+    /// dibujarlo con ITEM_COLOR.
+    pub fn item(&self, kind: char, face: ItemFace) -> Option<&Texture> {
         let item = self.items.get(&kind)?;
+        let other = match face {
+            ItemFace::Idle => None,
+            ItemFace::Happy => item.happy.as_ref(),
+            ItemFace::Sad => item.sad.as_ref(),
+        };
 
-        if cheering && item.happy.is_some() {
-            return item.happy.as_ref();
-        }
-        frame_at(&item.idle, item.fps, self.clock)
+        other.or_else(|| frame_at(&item.idle, item.fps, self.clock))
+    }
+
+    /// La cara `face` del primer tipo de objeto. La usan el contador y los
+    /// carteles, que hablan de los objetos en general y no de uno del mapa.
+    pub fn item_face(&self, face: ItemFace) -> Option<&Texture> {
+        self.item(config::ITEM_TEXTURES.first()?.cell, face)
     }
 
     pub fn heart(&self, frame: usize) -> Option<&Texture> {

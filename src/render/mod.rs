@@ -4,6 +4,7 @@ mod hud;
 mod minimap;
 mod shading;
 mod sprites;
+mod title;
 mod weapon;
 mod world;
 
@@ -11,6 +12,7 @@ pub use game_over::render_banner;
 pub use hud::{render_health, render_pickup, render_score};
 pub use minimap::{render_minimap, MinimapMode};
 pub use sprites::render_sprites;
+pub use title::{button_at, render_title, Button, Menu};
 pub use weapon::render_weapon;
 pub use world::render_world;
 

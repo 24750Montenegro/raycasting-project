@@ -28,6 +28,12 @@ impl Framebuffer {
         }
     }
 
+    /// El tamaño de la pantalla como vector, que es como lo piden los que
+    /// dibujan en coordenadas de pantalla.
+    pub fn size(&self) -> Vector2 {
+        Vector2::new(self.width as f32, self.height as f32)
+    }
+
     #[inline]
     fn offset(&self, x: i32, y: i32) -> Option<usize> {
         if x < 0 || y < 0 || x >= self.width as i32 || y >= self.height as i32 {

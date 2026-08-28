@@ -23,13 +23,44 @@ pub struct Level {
 }
 
 /// Los niveles en orden. Se juegan uno tras otro y el puntaje se arrastra de
-/// uno al siguiente; agregar un mapa nuevo es agregar una fila acá.
-pub const LEVELS: &[Level] = &[Level {
-    maze_file: "maze.txt",
-    enemy_hits: 5,
-    enemy_speed: 85.0,
-    item_score: 100,
-}];
+/// uno al siguiente; agregar un mapa nuevo es agregar una fila acá. La
+/// dificultad sube por los tres lados a la vez: los bichos aguantan más, van
+/// más rápido y hay más por mapa, que eso lo pone el laberinto.
+///
+/// La velocidad nunca llega a MOVE_SPEED: al que corre siempre le tiene que
+/// quedar la opción de correr.
+pub const LEVELS: &[Level] = &[
+    // los pasillos anchos del principio, para agarrarle la mano
+    Level {
+        maze_file: "maze.txt",
+        enemy_hits: 5,
+        enemy_speed: 85.0,
+        item_score: 100,
+    },
+    // el peine: pasillos de ida y vuelta, con un bicho esperando en el fondo
+    // de algunos dientes
+    Level {
+        maze_file: "maze2.txt",
+        enemy_hits: 6,
+        enemy_speed: 100.0,
+        item_score: 150,
+    },
+    // cuatro salas con una sola puerta cada una: el que entra atrás tuyo te
+    // deja sin salida
+    Level {
+        maze_file: "maze3.txt",
+        enemy_hits: 7,
+        enemy_speed: 115.0,
+        item_score: 200,
+    },
+    // laberinto cerrado de verdad, con la entrega del otro lado del mapa
+    Level {
+        maze_file: "maze4.txt",
+        enemy_hits: 8,
+        enemy_speed: 130.0,
+        item_score: 300,
+    },
+];
 
 // ── Mundo ────────────────────────────────────────────────────────────────
 pub const BLOCK_SIZE: usize = 40;
@@ -108,6 +139,13 @@ pub const WALL_TEXTURES: &[WallTexture] = &[
         cell: '-',
         path: "assets/netherbrick.webp",
         tiles: 4.0,
+        frames: 1,
+        fps: 0.0,
+    },
+    WallTexture {
+        cell: 'g',
+        path: "assets/portal.jpg",
+        tiles: 1.0,
         frames: 1,
         fps: 0.0,
     },
@@ -370,6 +408,9 @@ pub struct ItemTexture {
     /// Cómo se ve en el festejo de levantarlo. Sin esta, festeja con la cara
     /// de siempre.
     pub happy: Option<&'static str>,
+    /// Y cómo se ve en el cartel de fin de nivel, contando los que quedaron
+    /// sin rescatar.
+    pub sad: Option<&'static str>,
 }
 
 pub const ITEM_TEXTURES: &[ItemTexture] = &[ItemTexture {
@@ -378,6 +419,7 @@ pub const ITEM_TEXTURES: &[ItemTexture] = &[ItemTexture {
     frames: 3,
     fps: 5.0,
     happy: Some("assets/bird-feliz.png"),
+    sad: Some("assets/bird-triste.png"),
 }];
 pub const ITEM_COLOR: Color = Color::new(240, 196, 62, 255);
 /// Alto del sprite como fracción de una celda: el mismo que el enemigo, así el
@@ -389,8 +431,6 @@ pub const ITEM_SIZE: f32 = ENEMY_SIZE;
 pub const ITEM_ASPECT: f32 = 1.0;
 /// Distancia a la que se levanta un objeto, sumada al radio del jugador.
 pub const ITEM_PICKUP_RADIUS: f32 = 12.0;
-/// Cuántos se pueden llevar a la vez: obliga a volver a la meta a descargar.
-pub const ITEM_CARRY_LIMIT: u32 = 3;
 /// El festejo de levantar uno: el objeto pega un salto contento abajo de todo
 /// de la pantalla, que es lo que avisa que entró. Va en pantalla y no en el
 /// mundo porque se levanta pisándolo, y a esa distancia el sprite se proyecta
@@ -484,6 +524,14 @@ pub const GAME_OVER_HINT_FILL: f32 = 0.3;
 pub const GAME_OVER_GAP: f32 = 0.07;
 pub const GAME_OVER_COLOR: Color = Color::new(214, 52, 46, 255);
 pub const GAME_OVER_HINT_COLOR: Color = Color::new(168, 164, 172, 255);
+/// Los pájaros que quedaron sin rescatar, al pie del cartel de fin de nivel:
+/// el triste con el número al lado. Alto del sprite, lado del bloque de los
+/// dígitos y separación entre los dos.
+pub const LEFT_BEHIND_SIZE: f32 = 88.0;
+pub const LEFT_BEHIND_BLOCK: f32 = 9.0;
+pub const LEFT_BEHIND_SPACING: f32 = 18.0;
+pub const LEFT_BEHIND_COLOR: Color = Color::new(224, 186, 104, 255);
+
 /// Velo que se pinta encima de la escena congelada.
 pub const GAME_OVER_VEIL: Color = Color::new(10, 8, 12, 200);
 
@@ -511,6 +559,55 @@ pub const VICTORY_ART: &[&str] = &[
     "#### #  # #  # #  # ####  #  ####",
 ];
 pub const VICTORY_COLOR: Color = Color::new(240, 196, 62, 255);
+
+// ── Pantalla de inicio ───────────────────────────────────────────────────
+/// El nombre del juego, arriba de todo, y el lado del bloque con el que se
+/// escribe.
+pub const TITLE_NAME: &str = "THE BIRDS";
+pub const TITLE_BLOCK: f32 = 15.0;
+pub const TITLE_COLOR: Color = Color::new(238, 232, 220, 255);
+/// El encabezado de la pantalla de controles, más chico que el nombre.
+pub const TITLE_HEADING: &str = "CONTROLES";
+pub const TITLE_HEADING_BLOCK: f32 = 8.0;
+/// La guía de controles: con qué se hace cada cosa. Agregar una fila acá la
+/// agrega a la pantalla, que se acomoda sola.
+pub const TITLE_CONTROLS: &[(&str, &str)] = &[
+    ("WASD", "MOVERSE"),
+    ("MOUSE", "MIRAR"),
+    ("CLICK", "PEGAR CON EL BATE"),
+    ("M", "MAPA"),
+    ("R", "SEGUIR O REINICIAR"),
+];
+/// Lado del bloque de esas líneas, cuánto se separan entre sí y qué ancho se le
+/// deja a la columna de las teclas, todo en píxeles de pantalla.
+pub const TITLE_CONTROL_BLOCK: f32 = 5.0;
+pub const TITLE_CONTROL_SPACING: f32 = 16.0;
+pub const TITLE_KEY_COLUMN: f32 = 190.0;
+pub const TITLE_KEY_COLOR: Color = Color::new(240, 196, 62, 255);
+pub const TITLE_CONTROL_COLOR: Color = Color::new(178, 174, 184, 255);
+/// Lo que dice cada botón. El primero de la lista es el que hace lo principal
+/// de esa pantalla, y es el que se pinta fuerte.
+pub const TITLE_PLAY: &str = "JUGAR";
+pub const TITLE_CONTROLS_LABEL: &str = "CONTROLES";
+pub const TITLE_BACK: &str = "VOLVER";
+/// Bloque de la letra de los botones, cuánto aire les queda alrededor, cuánto
+/// se separan entre sí y cuánto del cartel de arriba.
+pub const TITLE_PLAY_BLOCK: f32 = 8.0;
+pub const TITLE_PLAY_PADDING: Vector2 = Vector2::new(38.0, 24.0);
+pub const TITLE_BUTTON_SPACING: f32 = 18.0;
+pub const TITLE_GAP: f32 = 46.0;
+pub const TITLE_PLAY_COLOR: Color = Color::new(14, 13, 17, 255);
+/// El botón principal y el mismo con el mouse encima...
+pub const TITLE_BUTTON_COLOR: Color = Color::new(96, 214, 120, 255);
+pub const TITLE_BUTTON_HOVER: Color = Color::new(150, 236, 168, 255);
+/// ...y los de al lado, que no tienen que competirle.
+pub const TITLE_BUTTON_SECOND: Color = Color::new(88, 86, 96, 255);
+pub const TITLE_BUTTON_SECOND_HOVER: Color = Color::new(134, 132, 144, 255);
+/// Velo sobre la escena, más cerrado que el de los carteles: atrás se ve el
+/// primer nivel, pero acá todavía no se está jugando.
+pub const TITLE_VEIL: Color = Color::new(10, 8, 12, 232);
+/// Además del botón, con esto también se empieza y se vuelve.
+pub const TITLE_START_KEY: KeyboardKey = KeyboardKey::KEY_ENTER;
 
 // ── Niebla ───────────────────────────────────────────────────────────────
 pub const FOG_ENABLED: bool = true;
