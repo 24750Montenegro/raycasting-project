@@ -1,5 +1,4 @@
 # THE BIRDS
-
 Un raycaster escrito en Rust sobre raylib, sin motor 3D: el mundo se dibuja
 píxel por píxel en la CPU y se sube a la placa como una sola textura por cuadro.
 
@@ -8,6 +7,10 @@ sacarlos de ahí antes de que los duolingos te alcancen.
 
 Se juega con teclado y mouse o **con mando**, indistintamente: los dos están
 enchufados a la vez y se puede saltar de uno al otro en medio de la partida.
+
+### video demostrativo
+https://youtu.be/Nb_gAFLWdek
+
 
 ## Cómo se ejecuta
 
