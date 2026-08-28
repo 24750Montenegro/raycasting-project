@@ -1,4 +1,5 @@
 use crate::config;
+use crate::gamepad;
 use crate::maze::{collides, find_player_start, Maze};
 use raylib::prelude::*;
 use std::f32::consts::PI;
@@ -40,6 +41,8 @@ impl Player {
             turn += config::ROTATION_SPEED * dt;
         }
 
+        turn += gamepad::look_x(rl) * config::GAMEPAD_LOOK_SPEED * dt;
+
         // rem_euclid evita que el ángulo crezca sin límite
         self.angle = (self.angle + turn).rem_euclid(2.0 * PI);
     }
@@ -61,8 +64,19 @@ impl Player {
             strafe += 1.0;
         }
 
-        if forward == 0.0 && strafe == 0.0 {
+        let (pad_forward, pad_strafe) = gamepad::move_axes(rl);
+        forward += pad_forward;
+        strafe += pad_strafe;
+
+        // el stick ya viene acotado al círculo unidad; acotar acá el total evita
+        // que sumarle el teclado (o ir en diagonal) salga más rápido que de frente
+        let len = (forward * forward + strafe * strafe).sqrt();
+        if len == 0.0 {
             return;
+        }
+        if len > 1.0 {
+            forward /= len;
+            strafe /= len;
         }
 
         let speed = config::MOVE_SPEED * dt;

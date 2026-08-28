@@ -2,6 +2,7 @@ mod caster;
 mod config;
 mod enemy;
 mod framebuffer;
+mod gamepad;
 mod health;
 mod maze;
 mod player;
@@ -46,14 +47,18 @@ fn main() {
     while !window.window_should_close() {
         let dt = window.get_frame_time();
 
-        if window.is_key_pressed(KeyboardKey::KEY_M) {
+        if window.is_key_pressed(KeyboardKey::KEY_M)
+            || gamepad::button_pressed(&window, config::GAMEPAD_MINIMAP_BUTTON)
+        {
             minimap = minimap.toggled();
         }
 
         // sin vida el mundo queda congelado: se sigue dibujando la ultima
         // escena, pero ya nada se mueve hasta reiniciar
         if health.is_empty() {
-            if window.is_key_pressed(KeyboardKey::KEY_R) {
+            if window.is_key_pressed(KeyboardKey::KEY_R)
+                || gamepad::button_pressed(&window, config::GAMEPAD_RESTART_BUTTON)
+            {
                 player = Player::spawn(&maze, config::BLOCK_SIZE);
                 enemies.reset();
                 health = Health::full();
@@ -91,7 +96,7 @@ fn main() {
         render::render_health(&mut framebuffer, &health, &textures);
 
         if health.is_empty() {
-            render::render_game_over(&mut framebuffer);
+            render::render_game_over(&mut framebuffer, gamepad::connected(&window));
         }
 
         framebuffer.present(&mut window, &raylib_thread);
