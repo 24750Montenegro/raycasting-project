@@ -24,6 +24,8 @@ pub struct Enemy {
     cooldown: f32,
     /// Si el salto en curso ya resolvió su contacto.
     landed: bool,
+    /// Segundos que le quedan de callado antes de volver a hacerse oír.
+    silence: f32,
 }
 
 /// Los enemigos del nivel. Aparecen en las celdas listadas en ENEMY_TEXTURES,
@@ -48,6 +50,7 @@ impl Enemies {
                 leap: None,
                 cooldown: 0.0,
                 landed: false,
+                silence: 0.0,
             })
             .collect();
 
@@ -80,6 +83,11 @@ impl Enemies {
 
             if enemy.stagger <= 0.0 {
                 enemy.chase(maze, target, touch, block_size, dt);
+            }
+
+            // se hace oír más seguido y más fuerte cuanto más cerca está
+            if let Some(intensity) = enemy.alert(target, dt) {
+                events.push_with(GameEvent::EnemyNear, intensity);
             }
 
             // el golpe entra arriba del salto, y take_hit devuelve false
@@ -176,6 +184,34 @@ impl Enemy {
         (rise * PI / 2.0).sin() * config::ENEMY_ATTACK_LIFT
     }
 
+    /// Corre el reloj del aviso con el que el enemigo se hace oír mientras
+    /// persigue. Devuelve con qué fuerza suena en el único cuadro en el que
+    /// toca, y None el resto del tiempo. El reloj corre también fuera de
+    /// alcance —sin sonar— así que entrar en alcance lo hace saltar enseguida
+    /// sin que caminar de un lado al otro del borde lo dispare a cada paso.
+    fn alert(&mut self, target: Vector2, dt: f32) -> Option<f32> {
+        self.silence = (self.silence - dt).max(0.0);
+
+        let distance = (target - self.pos).length();
+        if distance > config::ENEMY_ALERT_RANGE || self.silence > 0.0 {
+            return None;
+        }
+
+        // 0 en el borde del alcance, 1 encima del jugador
+        let closeness = 1.0 - distance / config::ENEMY_ALERT_RANGE;
+        self.silence = lerp(
+            config::ENEMY_ALERT_INTERVAL_FAR,
+            config::ENEMY_ALERT_INTERVAL_NEAR,
+            closeness,
+        );
+
+        Some(lerp(
+            config::ENEMY_ALERT_VOLUME_FAR,
+            config::ENEMY_ALERT_VOLUME_NEAR,
+            closeness,
+        ))
+    }
+
     /// Avanza el salto con el que ataca y lo lanza cuando el jugador está a
     /// tiro. Devuelve true en el único cuadro en el que el golpe toca, que es
     /// el punto más alto: pegar ahí es lo que hace que el golpe se vea venir.
@@ -257,6 +293,11 @@ impl Enemy {
     }
 }
 
+/// Interpolación lineal de `from` a `to`.
+fn lerp(from: f32, to: f32, t: f32) -> f32 {
+    from + (to - from) * t.clamp(0.0, 1.0)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -293,6 +334,42 @@ mod tests {
         );
     }
 
+    /// Cuanto más cerca está, más seguido y más fuerte tiene que hacerse oír:
+    /// el aviso es lo único que delata a un enemigo que todavía no se ve, así
+    /// que si sonara siempre igual daría lo mismo tenerlo lejos que encima.
+    #[test]
+    fn el_enemigo_se_hace_oir_mas_al_acercarse() {
+        let lejos = avisos(config::ENEMY_ALERT_RANGE * 0.95, 12.0);
+        let cerca = avisos(config::ENEMY_ALERT_RANGE * 0.05, 12.0);
+        let afuera = avisos(config::ENEMY_ALERT_RANGE * 1.5, 12.0);
+
+        assert!(afuera.is_empty(), "avisó desde fuera de alcance");
+        assert!(
+            cerca.len() > lejos.len(),
+            "avisó {} veces de cerca y {} de lejos",
+            cerca.len(),
+            lejos.len()
+        );
+        assert!(
+            cerca[0] > lejos[0],
+            "de cerca sonó a {} y de lejos a {}",
+            cerca[0],
+            lejos[0]
+        );
+    }
+
+    /// Los avisos que da en `seconds` un enemigo parado a `distance` del
+    /// jugador, con el volumen de cada uno.
+    fn avisos(distance: f32, seconds: f32) -> Vec<f32> {
+        let mut enemy = grounded();
+        let target = Vector2::new(distance, 0.0);
+        let dt = 1.0 / 60.0;
+
+        (0..(seconds / dt) as usize)
+            .filter_map(|_| enemy.alert(target, dt))
+            .collect()
+    }
+
     fn grounded() -> Enemy {
         Enemy {
             pos: Vector2::zero(),
@@ -304,6 +381,7 @@ mod tests {
             leap: None,
             cooldown: 0.0,
             landed: false,
+            silence: 0.0,
         }
     }
 }

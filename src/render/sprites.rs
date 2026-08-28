@@ -61,19 +61,28 @@ pub fn render_sprites(
         lift: enemy.lift(),
         flash: enemy.flash(),
     });
-    let clock = items.clock();
-    let loose = items.loose().map(|item| Sprite {
-        pos: item.pos,
-        texture: textures.item(item.kind),
-        color: config::ITEM_COLOR,
-        height: config::ITEM_SIZE,
-        aspect: config::ITEM_ASPECT,
-        lift: item.lift(clock),
-        flash: 0.0,
+    let items = items.loose().map(|item| {
+        let texture = textures.item(item.kind, false);
+        Sprite {
+            pos: item.pos,
+            texture,
+            color: config::ITEM_COLOR,
+            height: config::ITEM_SIZE,
+            // el ancho sale de la imagen: la cara de contento es más ancha que
+            // la de siempre —abre las alas— y estirarla a un ancho fijo le
+            // sacaría justo eso
+            aspect: texture.map_or(config::ITEM_ASPECT, |texture| {
+                texture.width() as f32 / texture.height() as f32
+            }),
+            // esperan apoyados en el piso: el festejo de levantarlos no pasa
+            // acá sino en pantalla, que es donde entran enteros
+            lift: 0.0,
+            flash: 0.0,
+        }
     });
 
     let mut visible: Vec<Billboard> = enemies
-        .chain(loose)
+        .chain(items)
         .filter_map(|sprite| project(&sprite, player, half_width, horizon, projection, block_size))
         .collect();
 

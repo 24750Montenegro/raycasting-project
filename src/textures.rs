@@ -11,10 +11,6 @@ pub struct Texture {
 }
 
 impl Texture {
-    fn load(path: &str, limit: u32) -> Option<Texture> {
-        Some(Texture::from_image(open(path)?, limit))
-    }
-
     fn from_image(image: RgbaImage, limit: u32) -> Texture {
         // a la escala a la que se ven en pantalla, el detalle de más de una
         // imagen enorme solo aporta ruido al muestrear
@@ -147,16 +143,13 @@ struct Wall {
     fps: f32,
 }
 
-impl Wall {
-    /// Cuadro que toca mostrar a los `clock` segundos. Sin animación —un solo
-    /// cuadro o fps en 0— siempre es el primero.
-    fn frame(&self, clock: f32) -> Option<&Texture> {
-        if self.frames.len() < 2 || self.fps <= 0.0 {
-            return self.frames.first();
-        }
-        let index = (clock * self.fps) as usize % self.frames.len();
-        self.frames.get(index)
+/// Cuadro que toca mostrar a los `clock` segundos. Sin animación —un solo
+/// cuadro o fps en 0— siempre es el primero.
+fn frame_at(frames: &[Texture], fps: f32, clock: f32) -> Option<&Texture> {
+    if frames.len() < 2 || fps <= 0.0 {
+        return frames.first();
     }
+    frames.get((clock * fps) as usize % frames.len())
 }
 
 /// Las dos caras de un enemigo. Salen las dos del mismo recorte —la union de lo
@@ -205,12 +198,35 @@ impl Faces {
     }
 }
 
+/// Las dos caras de un objeto: la animacion con la que espera en el piso y la
+/// de contento, que es la del rato que dura el festejo de haberlo levantado.
+/// Esta ultima se recorta aparte porque no tiene por que ocupar lo mismo —el
+/// pajaro abre las alas— y el ancho con el que se dibuja sale de la imagen.
+struct Item {
+    idle: Vec<Texture>,
+    fps: f32,
+    happy: Option<Texture>,
+}
+
+impl Item {
+    fn load(item: &config::ItemTexture) -> Self {
+        Item {
+            idle: item
+                .idle
+                .map(|sheet| load_frames(sheet, item.frames))
+                .unwrap_or_default(),
+            fps: item.fps,
+            happy: item.happy.and_then(|path| load_frames(path, 1).pop()),
+        }
+    }
+}
+
 /// Todas las imagenes del juego cargadas en RAM: paredes, sprites de enemigos y
 /// la hoja de corazones del HUD.
 pub struct TextureManager {
     walls: HashMap<char, Wall>,
     enemies: HashMap<char, Faces>,
-    items: HashMap<char, Texture>,
+    items: HashMap<char, Item>,
     hearts: Vec<Texture>,
     weapon: Vec<Texture>,
     /// Segundos corridos de las paredes animadas. Vive acá y no en el render
@@ -245,10 +261,7 @@ impl TextureManager {
 
         let items = config::ITEM_TEXTURES
             .iter()
-            .filter_map(|&(cell, path)| {
-                let texture = Texture::load(path?, config::SPRITE_MAX_SIZE)?;
-                Some((cell, texture))
-            })
+            .map(|item| (item.cell, Item::load(item)))
             .collect();
 
         TextureManager {
@@ -274,7 +287,7 @@ impl TextureManager {
     /// animada sale del cuadro que toca en este instante.
     pub fn wall_column(&self, cell: char, u: f32) -> Option<TextureColumn<'_>> {
         let wall = self.walls.get(&cell)?;
-        Some(wall.frame(self.clock)?.column(u, wall.tiles))
+        Some(frame_at(&wall.frames, wall.fps, self.clock)?.column(u, wall.tiles))
     }
 
     /// Sprite del enemigo `kind`, con la cara del salto mientras ataca. None si
@@ -283,10 +296,16 @@ impl TextureManager {
         self.enemies.get(&kind)?.face(attacking)
     }
 
-    /// Sprite del objeto `kind`, o None si esa entrada todavía no tiene
-    /// imagen y hay que dibujarlo con ITEM_COLOR.
-    pub fn item(&self, kind: char) -> Option<&Texture> {
-        self.items.get(&kind)
+    /// Sprite del objeto `kind`: la cara de contento mientras dura el festejo
+    /// de levantarlo y, si no, el cuadro que toca de su animación. None si esa
+    /// entrada no tiene imagen y hay que dibujarlo con ITEM_COLOR.
+    pub fn item(&self, kind: char, cheering: bool) -> Option<&Texture> {
+        let item = self.items.get(&kind)?;
+
+        if cheering && item.happy.is_some() {
+            return item.happy.as_ref();
+        }
+        frame_at(&item.idle, item.fps, self.clock)
     }
 
     pub fn heart(&self, frame: usize) -> Option<&Texture> {
@@ -467,6 +486,52 @@ mod tests {
                 width,
                 wall.frames
             );
+        }
+    }
+
+    /// Lo mismo para la hoja del objeto, que se parte igual: si el ancho no es
+    /// múltiplo exacto de los cuadros, la animación se ve corrida.
+    #[test]
+    fn la_hoja_del_objeto_se_parte_en_cuadros_exactos() {
+        for item in config::ITEM_TEXTURES {
+            let Some(sheet) = item.idle else {
+                continue; // esa entrada se dibuja con el color plano
+            };
+            let (width, _) = image::image_dimensions(sheet)
+                .unwrap_or_else(|e| panic!("no se pudo leer {}: {}", sheet, e));
+
+            assert_eq!(
+                width as usize % item.frames.max(1),
+                0,
+                "{} mide {} de ancho y no se parte en {} cuadros",
+                sheet,
+                width,
+                item.frames
+            );
+        }
+    }
+
+    /// Los cuadros del objeto salen todos del mismo recorte, así que la
+    /// animación no se mueve de lugar; la cara de contento sale del suyo, que
+    /// es lo que la deja abrir las alas.
+    #[test]
+    fn los_cuadros_del_objeto_miden_todos_lo_mismo() {
+        let textures = TextureManager::load();
+
+        for entry in config::ITEM_TEXTURES {
+            let item = &textures.items[&entry.cell];
+            let Some(first) = item.idle.first() else {
+                continue;
+            };
+
+            for frame in &item.idle {
+                assert_eq!(
+                    (first.width(), first.height()),
+                    (frame.width(), frame.height()),
+                    "los cuadros de '{}' no salieron del mismo recorte",
+                    entry.cell
+                );
+            }
         }
     }
 

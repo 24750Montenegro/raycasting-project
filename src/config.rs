@@ -125,7 +125,7 @@ pub const WALL_TEXTURES: &[WallTexture] = &[
         path: "assets/dog-knife.png",
         tiles: 1.0,
         frames: 3,
-        fps: 12.0,
+        fps: 16.0,
     },
 
     WallTexture {
@@ -188,6 +188,20 @@ pub const SPRITE_ALPHA_CUTOFF: u8 = 8;
 /// Más cerca que esto el tamaño se dispara y no queda nada útil en pantalla.
 pub const SPRITE_NEAR_PLANE: f32 = 6.0;
 
+// ── Aviso del enemigo ────────────────────────────────────────────────────
+// El enemigo se hace oír mientras persigue, y cuanto más cerca está más seguido
+// y más fuerte: es lo que avisa que viene uno cuando todavía no se lo ve, y lo
+// que deja saber de qué lado está sin mirar el minimapa.
+/// Desde qué distancia empieza a escucharse, en píxeles del mundo.
+pub const ENEMY_ALERT_RANGE: f32 = 7.0 * BLOCK_SIZE as f32;
+/// Cada cuánto se hace oír, en segundos, en el borde de ese alcance y encima
+/// del jugador. Entre esos dos extremos va corriendo con la distancia.
+pub const ENEMY_ALERT_INTERVAL_FAR: f32 = 2.8;
+pub const ENEMY_ALERT_INTERVAL_NEAR: f32 = 0.8;
+/// Y con qué volumen, de 0 a 1, en esos mismos dos extremos.
+pub const ENEMY_ALERT_VOLUME_FAR: f32 = 0.22;
+pub const ENEMY_ALERT_VOLUME_NEAR: f32 = 1.0;
+
 // ── Ataque del enemigo ───────────────────────────────────────────────────
 // El enemigo no lastima al rozar: pega saltando encima. El salto es a la vez el
 // aviso de que el golpe viene y lo que lo sube hasta la línea de la cámara, que
@@ -212,23 +226,88 @@ const _: () = assert!(
 );
 
 // ── Sonido ───────────────────────────────────────────────────────────────
-/// Qué suena en cada evento. El archivo que todavía no exista se saltea, así
-/// que la tabla ya puede nombrar los sonidos que faltan: apenas aparezca el
-/// .wav en esa ruta empieza a sonar solo. Un mismo evento admite una sola
-/// entrada; el formato lo pone raylib (wav, ogg, mp3, flac).
-pub const SOUNDS: &[(GameEvent, &str)] = &[
-    (GameEvent::Attack, "assets/sounds/attack.wav"),
-    (GameEvent::EnemyAttack, "assets/sounds/enemy_attack.wav"),
-    (GameEvent::EnemyHit, "assets/sounds/enemy_hit.wav"),
-    (GameEvent::EnemyDown, "assets/sounds/enemy_down.wav"),
-    (GameEvent::ItemPickup, "assets/sounds/pickup.wav"),
-    (GameEvent::ItemDeliver, "assets/sounds/deliver.wav"),
-    (GameEvent::PlayerHurt, "assets/sounds/hurt.wav"),
-    (GameEvent::PlayerDown, "assets/sounds/game_over.wav"),
-    (GameEvent::LevelClear, "assets/sounds/level_clear.wav"),
+/// Un efecto atado a un evento. El archivo que todavía no exista se saltea,
+/// así que la tabla ya puede nombrar los sonidos que faltan: apenas aparezca
+/// en esa ruta empieza a sonar solo. Un mismo evento admite una sola entrada;
+/// el formato lo pone raylib (wav, ogg, mp3, flac).
+pub struct SoundClip {
+    pub event: GameEvent,
+    pub path: &'static str,
+    /// Cuánto se usa del clip, en segundos, contados desde donde empieza a
+    /// sonar de verdad. En 0 se usa entero. Sirve para los clips que traen de
+    /// más: enemy_near son once segundos con varias tandas y solo se quiere la
+    /// primera, o al enemigo le llevaría una eternidad terminar de saludar.
+    pub seconds: f32,
+    /// Cuánto pesa en la mezcla, relativo a SOUND_VOLUME. Los clips vienen de
+    /// lados distintos y no están grabados al mismo nivel, así que acá se
+    /// emparejan: 1.0 los deja como están, más los levanta y menos los baja.
+    pub volume: f32,
+}
+
+pub const SOUNDS: &[SoundClip] = &[
+    SoundClip {
+        event: GameEvent::EnemyNear,
+        path: "assets/sounds/enemy_near.mp3",
+        seconds: 1.7,
+        // suena todo el tiempo mientras haya alguien cerca: es el que menos
+        // tiene que taparle el lugar a los demás
+        volume: 0.45,
+    },
+    SoundClip {
+        event: GameEvent::EnemyAttack,
+        path: "assets/sounds/enemy_attack.mp3",
+        seconds: 0.0,
+        volume: 1.0,
+    },
+    // el mismo bonk para el golpe que entra y para el que lo termina de tumbar:
+    // son dos entradas y no una porque cada evento se lleva su propia voz, y
+    // así el volumen de uno no le pisa el del otro. Viene grabado bajito y es
+    // la respuesta al único botón del juego, así que va por encima del resto
+    SoundClip {
+        event: GameEvent::EnemyHit,
+        path: "assets/sounds/enemy_hit.mp3",
+        seconds: 0.0,
+        volume: 1.6,
+    },
+    SoundClip {
+        event: GameEvent::EnemyDown,
+        path: "assets/sounds/enemy_hit.mp3",
+        seconds: 0.0,
+        volume: 1.6,
+    },
+    SoundClip {
+        event: GameEvent::ItemPickup,
+        path: "assets/sounds/pickup.mp3",
+        seconds: 0.0,
+        volume: 1.0,
+    },
+    SoundClip {
+        event: GameEvent::ItemDeliver,
+        path: "assets/sounds/deliver.mp3",
+        seconds: 0.0,
+        volume: 1.0,
+    },
+    SoundClip {
+        event: GameEvent::PlayerHurt,
+        path: "assets/sounds/hurt.mp3",
+        // el grito entero son cinco segundos y medio, y el golpe siguiente
+        // puede llegar antes: con el arranque alcanza
+        seconds: 2.0,
+        volume: 1.0,
+    },
 ];
 /// Volumen con el que se reproducen, de 0 a 1.
 pub const SOUND_VOLUME: f32 = 0.8;
+/// Amplitud por debajo de la cual una muestra cuenta como silencio, que es lo
+/// que se le recorta a cada clip por delante para que el efecto arranque en el
+/// instante en que se dispara.
+pub const SOUND_SILENCE: f32 = 0.01;
+
+/// Música de fondo, en bucle de punta a punta y desde que arranca el juego.
+/// Va en streaming, así que el archivo puede ser todo lo largo que se quiera.
+pub const MUSIC_TRACK: &str = "assets/sounds/lobby.mp3";
+/// Bien por debajo de los efectos: es lo que está sonando todo el tiempo.
+pub const MUSIC_VOLUME: f32 = 0.35;
 
 // ── Ataque ───────────────────────────────────────────────────────────────
 /// Con qué se pega: botón del mouse y botón del control.
@@ -247,41 +326,81 @@ pub const ATTACK_RANGE: f32 = 46.0;
 pub const ATTACK_ARC: f32 = PI / 2.0;
 /// Empujón que se lleva el enemigo golpeado, en píxeles del mundo.
 pub const ATTACK_KNOCKBACK: f32 = 14.0;
-/// Hoja de la animación del golpe, con el primer cuadro en reposo y el resto
-/// repartido a lo largo del golpe. Sin hoja (None) se dibuja el puño de
-/// bloques de render::weapon.
-pub const ATTACK_SHEET: Option<&str> = None;
-pub const ATTACK_FRAMES: usize = 4;
-/// Alto del arma en pantalla como fracción del alto de la ventana, ancho como
-/// fracción de ese alto, margen contra la esquina y cuánto se desplaza durante
-/// el golpe (en fracción de su propio tamaño).
-pub const WEAPON_HEIGHT: f32 = 0.42;
-pub const WEAPON_ASPECT: f32 = 0.34;
+/// Con qué se pega. Una imagen suelta (un cuadro) o una hoja con los cuadros
+/// uno al lado del otro: el primero es el reposo y el resto se reparte a lo
+/// largo del golpe. El bate es una sola imagen porque el vaivén no lo dibuja
+/// la hoja sino el render, que lo gira y lo empuja contra el frente.
+pub const ATTACK_SHEET: Option<&str> = Some("assets/bat.png");
+pub const ATTACK_FRAMES: usize = 1;
+/// Alto del arma en pantalla como fracción del alto de la ventana; el ancho
+/// sale de la proporción de la imagen, así que cambiarla no la deforma.
+pub const WEAPON_HEIGHT: f32 = 0.46;
+/// Margen contra la esquina de abajo a la derecha, en fracción del alto.
 pub const WEAPON_MARGIN: f32 = 0.01;
-pub const WEAPON_SWING: f32 = 0.22;
-/// Colores del puño de reemplazo, mientras no haya hoja.
-pub const WEAPON_COLOR: Color = Color::new(206, 158, 122, 255);
-pub const WEAPON_ARM_COLOR: Color = Color::new(74, 62, 84, 255);
+/// Cuánto se corre el arma durante el golpe, en fracción de su propio tamaño:
+/// hacia el centro de la pantalla al pegar y hacia la esquina al tomar envión.
+pub const WEAPON_SWING: f32 = 0.26;
+/// El punto del bate sobre el que gira, en fracción de la imagen: el puño, que
+/// queda abajo a la derecha. Es lo que hace que el mango se quede en la mano y
+/// sea la punta la que barre la pantalla.
+pub const WEAPON_PIVOT: Vector2 = Vector2::new(0.76, 0.94);
+/// Cuánto se levanta hacia atrás para tomar envión y cuánto barre después
+/// hacia adelante, en radianes. El barrido va al revés que las agujas del
+/// reloj: el bate sale de la esquina y cruza el centro de la pantalla.
+pub const WEAPON_WINDUP: f32 = 0.32;
+pub const WEAPON_SWING_ARC: f32 = 1.15;
+/// Cuánto crece el bate en el momento del contacto, en fracción de su tamaño:
+/// es lo que lo acerca a la cámara y hace que el golpe salga hacia el frente y
+/// no de costado.
+pub const WEAPON_THRUST: f32 = 0.22;
 
 // ── Objetos y entrega ────────────────────────────────────────────────────
-/// Objetos que se juntan: carácter en el laberinto -> textura del sprite.
-/// Igual que los enemigos, estas celdas son piso: el objeto aparece ahí y la
-/// celda queda libre. Sin textura (None) se dibujan con ITEM_COLOR.
-pub const ITEM_TEXTURES: &[(char, Option<&str>)] = &[('c', None)];
+/// Un objeto de los que hay que juntar. Igual que los enemigos, estas celdas
+/// son piso: el objeto aparece ahí y la celda queda libre.
+pub struct ItemTexture {
+    pub cell: char,
+    /// Cómo se ve esperando en el piso: la hoja con los cuadros de su
+    /// animación uno al lado del otro, que se recorren en bucle. Sin imagen
+    /// (None) se dibuja con ITEM_COLOR.
+    pub idle: Option<&'static str>,
+    /// Cuántos cuadros trae esa hoja y a cuántos por segundo se recorren. Un
+    /// solo cuadro, o fps en 0, lo dejan quieto.
+    pub frames: usize,
+    pub fps: f32,
+    /// Cómo se ve en el festejo de levantarlo. Sin esta, festeja con la cara
+    /// de siempre.
+    pub happy: Option<&'static str>,
+}
+
+pub const ITEM_TEXTURES: &[ItemTexture] = &[ItemTexture {
+    cell: 'c',
+    idle: Some("assets/bird-normal-sheet.png"),
+    frames: 3,
+    fps: 5.0,
+    happy: Some("assets/bird-feliz.png"),
+}];
 pub const ITEM_COLOR: Color = Color::new(240, 196, 62, 255);
-/// Alto del sprite como fracción de una celda y ancho como fracción del alto.
-pub const ITEM_SIZE: f32 = 0.3;
+/// Alto del sprite como fracción de una celda: el mismo que el enemigo, así el
+/// pájaro y el que lo cuida se ven del mismo porte.
+pub const ITEM_SIZE: f32 = ENEMY_SIZE;
+/// Ancho como fracción de ese alto, para el objeto que no tenga imagen: el que
+/// sí la tiene saca el ancho de su propia proporción, que es lo que deja al
+/// pájaro abrir las alas en el festejo sin cambiar de altura.
 pub const ITEM_ASPECT: f32 = 1.0;
 /// Distancia a la que se levanta un objeto, sumada al radio del jugador.
 pub const ITEM_PICKUP_RADIUS: f32 = 12.0;
 /// Cuántos se pueden llevar a la vez: obliga a volver a la meta a descargar.
 pub const ITEM_CARRY_LIMIT: u32 = 3;
-/// Flote del sprite: altura sobre el piso en fracción de celda, amplitud y
-/// velocidad del vaivén, y desfase entre un objeto y el siguiente.
-pub const ITEM_LIFT: f32 = 0.34;
-pub const ITEM_BOB_AMPLITUDE: f32 = 0.05;
-pub const ITEM_BOB_SPEED: f32 = 2.6;
-pub const ITEM_BOB_OFFSET: f32 = 1.1;
+/// El festejo de levantar uno: el objeto pega un salto contento abajo de todo
+/// de la pantalla, que es lo que avisa que entró. Va en pantalla y no en el
+/// mundo porque se levanta pisándolo, y a esa distancia el sprite se proyecta
+/// más alto que la ventana: de la única forma que se lo ve entero es así.
+/// Cuánto dura el salto, en segundos...
+pub const ITEM_CHEER: f32 = 0.5;
+/// ...qué alto se dibuja, en fracción del alto de la ventana, y cuánto salta
+/// desde el centro de la pantalla, en fracción de su propio alto.
+pub const ITEM_CHEER_HEIGHT: f32 = 0.45;
+pub const ITEM_CHEER_HOP: f32 = 0.35;
 
 /// Celda donde se entrega lo recolectado, y a qué distancia de su centro cuenta
 /// como entregado. La meta sigue siendo pared, así que alcanza con arrimarse:

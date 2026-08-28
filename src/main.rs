@@ -15,7 +15,7 @@ mod stage;
 mod textures;
 
 use attack::Attack;
-use audio::Sounds;
+use audio::{Backdrop, Sounds};
 use events::{Events, GameEvent};
 use framebuffer::Framebuffer;
 use health::Health;
@@ -68,6 +68,7 @@ fn main() {
         }
     };
     let sounds = audio.as_ref().map(Sounds::load);
+    let backdrop = audio.as_ref().and_then(Backdrop::start);
 
     let mut textures = TextureManager::load();
     let mut framebuffer = Framebuffer::new(
@@ -82,6 +83,12 @@ fn main() {
 
     while !window.window_should_close() {
         let dt = window.get_frame_time();
+
+        // la música va afuera de la simulación: sigue de fondo también sobre
+        // los carteles, que es cuando el mundo está congelado
+        if let Some(backdrop) = &backdrop {
+            backdrop.feed();
+        }
 
         if window.is_key_pressed(KeyboardKey::KEY_M)
             || gamepad::button_pressed(&window, config::GAMEPAD_MINIMAP_BUTTON)
@@ -128,9 +135,9 @@ fn main() {
             phase = next_run(&mut stage, phase, &mut health, &mut attack);
         }
 
-        for event in events.drain() {
+        for (event, intensity) in events.drain() {
             if let Some(sounds) = &sounds {
-                sounds.play(event);
+                sounds.play(event, intensity);
             }
         }
 
@@ -162,6 +169,7 @@ fn main() {
             config::BLOCK_SIZE,
         );
         render::render_health(&mut framebuffer, &health, &textures);
+        render::render_pickup(&mut framebuffer, &stage.items, &textures);
         render::render_score(
             &mut framebuffer,
             stage.number(),

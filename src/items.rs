@@ -24,15 +24,16 @@ pub struct Item {
     /// Carácter con el que apareció, que es como se busca su textura.
     pub kind: char,
     pub state: ItemState,
-    /// Desfase del flote, para que no suban y bajen todos a la vez.
-    phase: f32,
+    /// Segundos que le quedan al festejo de haberlo levantado, o None si no
+    /// está festejando: en el piso todavía, o hace rato que se lo llevaron.
+    cheer: Option<f32>,
 }
 
 impl Item {
-    /// Cuánto se despega del piso ahora mismo, en fracción de una celda.
-    pub fn lift(&self, clock: f32) -> f32 {
-        let wave = (clock * config::ITEM_BOB_SPEED + self.phase).sin();
-        config::ITEM_LIFT + wave * config::ITEM_BOB_AMPLITUDE
+    /// Avance del festejo en [0, 1], o None si este no está festejando.
+    fn cheer(&self) -> Option<f32> {
+        self.cheer
+            .map(|left| 1.0 - (left / config::ITEM_CHEER).clamp(0.0, 1.0))
     }
 }
 
@@ -47,22 +48,19 @@ pub struct Items {
     score: u32,
     /// Puntos por objeto entregado, que los pone el nivel.
     value: u32,
-    /// Segundos desde que empezó el nivel, para el flote de los sprites.
-    clock: f32,
 }
 
 impl Items {
     pub fn spawn(maze: &mut Maze, level: &Level, block_size: usize) -> Self {
-        let spawns: Vec<char> = config::ITEM_TEXTURES.iter().map(|&(cell, _)| cell).collect();
+        let spawns: Vec<char> = config::ITEM_TEXTURES.iter().map(|item| item.cell).collect();
 
         let items = take_spawns(maze, &spawns, block_size)
             .into_iter()
-            .enumerate()
-            .map(|(index, (kind, pos))| Item {
+            .map(|(kind, pos)| Item {
                 pos,
                 kind,
                 state: ItemState::Loose,
-                phase: index as f32 * config::ITEM_BOB_OFFSET,
+                cheer: None,
             })
             .collect();
 
@@ -73,19 +71,24 @@ impl Items {
             delivered: 0,
             score: 0,
             value: level.item_score,
-            clock: 0.0,
         }
     }
 
-    /// Los que están en el piso, que son los únicos que se dibujan.
+    /// Los que siguen esperando en el piso, que es lo que falta juntar.
     pub fn loose(&self) -> impl Iterator<Item = &Item> {
         self.items
             .iter()
             .filter(|item| item.state == ItemState::Loose)
     }
 
-    pub fn clock(&self) -> f32 {
-        self.clock
+    /// Qué se acaba de levantar y cuánto lleva el festejo, en [0, 1], o None si
+    /// no hay ninguno en curso. El que va más atrás manda: levantar otro
+    /// mientras salta el anterior vuelve a empezar el festejo.
+    pub fn cheer(&self) -> Option<(char, f32)> {
+        self.items
+            .iter()
+            .filter_map(|item| Some((item.kind, item.cheer()?)))
+            .min_by(|a, b| a.1.total_cmp(&b.1))
     }
 
     pub fn carried(&self) -> u32 {
@@ -111,7 +114,9 @@ impl Items {
     }
 
     pub fn update(&mut self, player_pos: Vector2, dt: f32, events: &mut Events) {
-        self.clock += dt;
+        for item in self.items.iter_mut() {
+            item.cheer = item.cheer.map(|left| left - dt).filter(|left| *left > 0.0);
+        }
 
         self.pick_up(player_pos, events);
         self.deliver(player_pos, events);
@@ -130,6 +135,7 @@ impl Items {
             }
 
             item.state = ItemState::Carried;
+            item.cheer = Some(config::ITEM_CHEER);
             self.carried += 1;
             events.push(GameEvent::ItemPickup);
         }
@@ -161,5 +167,55 @@ impl Items {
         self.goals
             .iter()
             .any(|&goal| (player_pos - goal).length() <= config::GOAL_REACH)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Levantar algo tiene que dejar el festejo corriendo de punta a punta, y
+    /// terminarlo: es lo único que avisa que entró, así que cortarlo antes de
+    /// tiempo es no avisar, y no cortarlo nunca es dejarlo tapando la pantalla.
+    #[test]
+    fn levantar_un_objeto_larga_el_festejo_y_lo_termina() {
+        let mut maze: Maze = vec![vec![' '; 4]; 4];
+        maze[1][1] = config::ITEM_TEXTURES[0].cell;
+
+        let block = config::BLOCK_SIZE;
+        let mut items = Items::spawn(&mut maze, &level(), block);
+        let mut events = Events::new();
+        // encima del objeto, que es donde se lo levanta
+        let on_top = Vector2::new(1.5 * block as f32, 1.5 * block as f32);
+
+        items.update(on_top, 0.0, &mut events);
+        assert_eq!(items.carried(), 1, "no lo levantó");
+        assert_eq!(
+            items.cheer().map(|(_, progress)| progress),
+            Some(0.0),
+            "el festejo no arrancó al levantarlo"
+        );
+
+        // justo antes de que se cumpla el tiempo todavía tiene que estar
+        let dt = 1.0 / 60.0;
+        for _ in 0..(config::ITEM_CHEER / dt) as usize - 1 {
+            items.update(on_top, dt, &mut events);
+        }
+        let (_, progress) = items.cheer().expect("el festejo se cortó antes");
+        assert!(progress > 0.9, "el festejo va en {} y ya casi termina", progress);
+
+        for _ in 0..3 {
+            items.update(on_top, dt, &mut events);
+        }
+        assert!(items.cheer().is_none(), "el festejo no terminó nunca");
+    }
+
+    fn level() -> Level {
+        Level {
+            maze_file: "",
+            enemy_hits: 1,
+            enemy_speed: 0.0,
+            item_score: 10,
+        }
     }
 }
