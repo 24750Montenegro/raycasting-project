@@ -6,6 +6,9 @@ píxel por píxel en la CPU y se sube a la placa como una sola textura por cuadr
 Sos el que tiene el bate. Los pájaros están tirados por el laberinto y hay que
 sacarlos de ahí antes de que los duolingos te alcancen.
 
+Se juega con teclado y mouse o **con mando**, indistintamente: los dos están
+enchufados a la vez y se puede saltar de uno al otro en medio de la partida.
+
 ## Cómo se ejecuta
 
 Hace falta **Rust 1.85 o más nuevo** (el proyecto usa la edición 2024) y el
@@ -39,9 +42,11 @@ los assets de verdad desde el disco.
 ## Cómo se juega
 
 Arranca en el menú: **JUGAR** empieza y **CONTROLES** muestra la guía. Se navega
-con el mouse, con ENTER o con el control.
+con el mouse, con ENTER o con el mando.
 
-| tecla / botón | qué hace |
+### Con teclado y mouse
+
+| tecla | qué hace |
 | --- | --- |
 | `W` `A` `S` `D` | caminar y desplazarse de costado |
 | mouse (o las flechas `←` `→`) | mirar |
@@ -50,9 +55,35 @@ con el mouse, con ENTER o con el control.
 | `R` | pasar al nivel siguiente, o reiniciar después de perder |
 | `ENTER` | confirmar en el menú |
 
-Con un control conectado: stick izquierdo para caminar, stick derecho para mirar,
-**X** para pegar, **Y** para el minimapa y **A** para seguir o reiniciar. La
-leyenda de los carteles cambia sola según si hay control o no.
+### Con mando
+
+El mando se lee del primer puerto y no hay que activarlo: si está conectado,
+anda. El mapeo es el de Xbox, que es el que raylib normaliza para casi cualquier
+mando genérico.
+
+| stick / botón | qué hace |
+| --- | --- |
+| stick izquierdo | caminar y desplazarse de costado |
+| stick derecho | mirar |
+| **X** | pegar con el bate |
+| **Y** | minimapa chico / minimapa grande |
+| **A** | seguir al nivel siguiente, reiniciar y confirmar en el menú |
+
+Dos detalles que hacen que se sienta bien y que se ajustan en `config.rs`:
+
+- la **zona muerta del stick izquierdo es radial**, o sea que se mide el módulo
+  del vector y no cada eje por su lado, así caminar en diagonal no necesita
+  empujar más el stick; lo que queda del recorrido se reescala desde cero para
+  que el movimiento no arranque de un salto;
+- el **stick derecho tiene respuesta exponencial**, que achica el giro cerca del
+  centro y deja la velocidad máxima solo al final del recorrido: es lo que
+  permite apuntar fino sin perder el giro rápido.
+
+También se puede invertir el eje horizontal de la cámara y cambiar el puerto, la
+zona muerta y la velocidad de giro (las constantes `GAMEPAD_*`).
+
+La leyenda de los carteles cambia sola: con mando conectado nombra el botón en
+vez de la tecla.
 
 ### La partida
 
@@ -140,8 +171,8 @@ píxeles del mundo (`maze.rs`).
 | --- | --- |
 | espacio | piso |
 | `p` | dónde empieza el jugador (tiene que haber exactamente una) |
-| `c` | un pájaro |
-| `e` | un bicho |
+| `c` | bird (moneda) |
+| `e` | duolingo malo |
 | `g` | la entrega; sigue siendo pared, por eso alcanza con arrimarse |
 | `+` `-` `#` y la barra vertical | paredes, cada una con su textura |
 
