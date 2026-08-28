@@ -8,6 +8,8 @@
 pub enum GameEvent {
     /// El jugador tiró un golpe, haya acertado o no.
     Attack,
+    /// Un enemigo saltó encima del jugador, le vaya a pegar o no.
+    EnemyAttack,
     /// Un golpe entró en un enemigo que sigue vivo.
     EnemyHit,
     /// Un enemigo se quedó sin aguante.

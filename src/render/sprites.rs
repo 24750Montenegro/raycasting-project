@@ -54,11 +54,11 @@ pub fn render_sprites(
 
     let enemies = enemies.iter().map(|enemy| Sprite {
         pos: enemy.pos,
-        texture: textures.enemy(enemy.kind),
+        texture: textures.enemy(enemy.kind, enemy.attacking()),
         color: config::ENEMY_COLOR,
         height: config::ENEMY_SIZE,
         aspect: config::ENEMY_ASPECT,
-        lift: 0.0,
+        lift: enemy.lift(),
         flash: enemy.flash(),
     });
     let clock = items.clock();
@@ -180,5 +180,64 @@ impl Billboard<'_> {
             channel(texel.b, self.fog[2]),
             texel.a,
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Parado, el enemigo tiene que entrar entero por debajo del horizonte
+    /// —que es la altura del ojo del jugador— y en el pico del salto tiene que
+    /// pasarlo. Eso es lo que se ve: un bicho chiquito al que hay que mirar
+    /// para abajo hasta que se te tira encima.
+    #[test]
+    fn el_salto_mete_al_enemigo_en_la_camara() {
+        let player = Player {
+            pos: Vector2::zero(),
+            angle: 0.0,
+            fov: config::FOV,
+        };
+        // de frente y a la distancia desde la que ataca, que es el peor caso:
+        // cuanto más cerca, más grande se proyecta el sprite
+        let enemy = |lift| Sprite {
+            pos: Vector2::new(config::ENEMY_ATTACK_REACH, 0.0),
+            texture: None,
+            color: config::ENEMY_COLOR,
+            height: config::ENEMY_SIZE,
+            aspect: config::ENEMY_ASPECT,
+            lift,
+            flash: 0.0,
+        };
+
+        let half_width = config::WINDOW_WIDTH as f32 / 2.0;
+        let horizon = config::WINDOW_HEIGHT as f32 / 2.0;
+        let projection = half_width / (config::FOV / 2.0).tan();
+        // la y crece hacia abajo: por encima del horizonte es un valor menor
+        let top = |lift| {
+            let sprite = enemy(lift);
+            project(
+                &sprite,
+                &player,
+                half_width,
+                horizon,
+                projection,
+                config::BLOCK_SIZE,
+            )
+            .expect("el enemigo quedó fuera de la cámara")
+            .top_left
+            .y
+        };
+
+        assert!(
+            top(0.0) > horizon,
+            "parado le tapa la vista: su borde de arriba cae en {}",
+            top(0.0)
+        );
+        assert!(
+            top(config::ENEMY_ATTACK_LIFT) < horizon,
+            "el salto no pasa la línea de la cámara: llega a {}",
+            top(config::ENEMY_ATTACK_LIFT)
+        );
     }
 }

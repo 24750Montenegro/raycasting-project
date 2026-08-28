@@ -144,10 +144,24 @@ pub const TEXTURE_MAX_SIZE: u32 = 128;
 pub const TEXTURE_BILINEAR: bool = true;
 
 // ── Enemigos ─────────────────────────────────────────────────────────────
-/// Enemigos: carácter en el laberinto -> textura del sprite. Igual que la del
-/// jugador, estas celdas son piso: el enemigo aparece ahí y la celda queda
-/// libre. Sin textura (None) se dibujan con ENEMY_COLOR.
-pub const ENEMY_TEXTURES: &[(char, Option<&str>)] = &[('e', None)];
+/// Las dos caras de un enemigo: con cuál camina y con cuál salta encima. Las dos
+/// se recortan al mismo rectángulo útil al cargarlas, así que cambiar de una a
+/// la otra no lo mueve ni un píxel.
+pub struct EnemyTexture {
+    /// Carácter en el laberinto. Igual que la del jugador, esta celda es piso:
+    /// el enemigo aparece ahí y la celda queda libre.
+    pub cell: char,
+    /// Cómo se ve mientras persigue. Sin imagen (None) se dibuja con ENEMY_COLOR.
+    pub idle: Option<&'static str>,
+    /// Cómo se ve durante el salto del ataque. Sin esta salta con la de siempre.
+    pub attack: Option<&'static str>,
+}
+
+pub const ENEMY_TEXTURES: &[EnemyTexture] = &[EnemyTexture {
+    cell: 'e',
+    idle: Some("assets/duo.png"),
+    attack: Some("assets/duo2.png"),
+}];
 pub const ENEMY_COLOR: Color = Color::new(196, 38, 38, 255);
 /// Radio del enemigo, para chocar con las paredes y con el jugador. Tiene que
 /// ser lo bastante chico como para poder cruzarse con el jugador dentro de un
@@ -160,11 +174,12 @@ pub const ENEMY_STAGGER: f32 = 0.22;
 /// mezcla en el pico.
 pub const ENEMY_HIT_FLASH: f32 = 0.14;
 pub const ENEMY_HIT_COLOR: Color = Color::new(255, 240, 232, 255);
-/// Alto del sprite como fracción de una celda...
-pub const ENEMY_SIZE: f32 = 0.75;
-/// ...y ancho como fracción de ese alto: <1 deja una figura angosta, acorde al
-/// poco lugar que ocupa el enemigo en el mundo.
-pub const ENEMY_ASPECT: f32 = 0.42;
+/// Alto del sprite como fracción de una celda. El ojo del jugador está a media
+/// celda del piso, así que por debajo de 0.5 el enemigo le queda por abajo de la
+/// línea de la vista: es de ahí que sale la gracia del salto.
+pub const ENEMY_SIZE: f32 = 0.4;
+/// ...y ancho como fracción de ese alto: el bicho es más ancho que alto.
+pub const ENEMY_ASPECT: f32 = 1.07;
 /// Lado máximo al que se reescalan los sprites y las hojas al cargarlos.
 pub const SPRITE_MAX_SIZE: u32 = 128;
 /// Alfa por debajo del cual un píxel de sprite se considera vacío.
@@ -173,6 +188,29 @@ pub const SPRITE_ALPHA_CUTOFF: u8 = 8;
 /// Más cerca que esto el tamaño se dispara y no queda nada útil en pantalla.
 pub const SPRITE_NEAR_PLANE: f32 = 6.0;
 
+// ── Ataque del enemigo ───────────────────────────────────────────────────
+// El enemigo no lastima al rozar: pega saltando encima. El salto es a la vez el
+// aviso de que el golpe viene y lo que lo sube hasta la línea de la cámara, que
+// parado le queda por debajo.
+/// Distancia desde su centro a la que salta, y a la que llega el golpe.
+pub const ENEMY_ATTACK_REACH: f32 = 34.0;
+/// Cuánto dura el salto entero y en qué fracción de esa duración toca. El
+/// contacto es también el punto más alto, así que correrlo corre el pico.
+pub const ENEMY_ATTACK_DURATION: f32 = 0.5;
+pub const ENEMY_ATTACK_CONTACT: f32 = 0.45;
+/// Espera entre el final de un salto y el siguiente.
+pub const ENEMY_ATTACK_COOLDOWN: f32 = 0.6;
+/// Cuánto se despega del piso en el pico, en fracción de una celda. Sumado a
+/// ENEMY_SIZE tiene que pasar de 0.5 para que el salto entre en la cámara.
+pub const ENEMY_ATTACK_LIFT: f32 = 0.34;
+// las dos mitades del efecto, atadas de una vez: parado tiene que quedar por
+// debajo de la línea de la vista —el ojo está a media celda del piso— y el
+// salto tiene que pasarla, o el golpe llega desde fuera de la pantalla
+const _: () = assert!(
+    ENEMY_SIZE < 0.5 && ENEMY_SIZE + ENEMY_ATTACK_LIFT > 0.5,
+    "el enemigo tiene que ser más bajo que el ojo del jugador y su salto pasarlo"
+);
+
 // ── Sonido ───────────────────────────────────────────────────────────────
 /// Qué suena en cada evento. El archivo que todavía no exista se saltea, así
 /// que la tabla ya puede nombrar los sonidos que faltan: apenas aparezca el
@@ -180,6 +218,7 @@ pub const SPRITE_NEAR_PLANE: f32 = 6.0;
 /// entrada; el formato lo pone raylib (wav, ogg, mp3, flac).
 pub const SOUNDS: &[(GameEvent, &str)] = &[
     (GameEvent::Attack, "assets/sounds/attack.wav"),
+    (GameEvent::EnemyAttack, "assets/sounds/enemy_attack.wav"),
     (GameEvent::EnemyHit, "assets/sounds/enemy_hit.wav"),
     (GameEvent::EnemyDown, "assets/sounds/enemy_down.wav"),
     (GameEvent::ItemPickup, "assets/sounds/pickup.wav"),

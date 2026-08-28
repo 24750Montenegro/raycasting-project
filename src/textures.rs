@@ -12,13 +12,7 @@ pub struct Texture {
 
 impl Texture {
     fn load(path: &str, limit: u32) -> Option<Texture> {
-        match image::open(path) {
-            Ok(image) => Some(Texture::from_image(image.to_rgba8(), limit)),
-            Err(e) => {
-                eprintln!("Error al cargar la textura {}: {}", path, e);
-                None
-            }
-        }
+        Some(Texture::from_image(open(path)?, limit))
     }
 
     fn from_image(image: RgbaImage, limit: u32) -> Texture {
@@ -165,11 +159,57 @@ impl Wall {
     }
 }
 
+/// Las dos caras de un enemigo. Salen las dos del mismo recorte —la union de lo
+/// que cada una tiene dibujado— para que cambiar de una a la otra no lo mueva ni
+/// un pixel. Ese recorte es ademas lo que lo apoya en el piso: el margen
+/// transparente del archivo lo dejaria flotando y mas chico de lo que pide
+/// ENEMY_SIZE.
+struct Faces {
+    idle: Option<Texture>,
+    attack: Option<Texture>,
+}
+
+impl Faces {
+    fn load(enemy: &config::EnemyTexture) -> Self {
+        let idle = enemy.idle.and_then(open);
+        let attack = enemy.attack.and_then(open);
+
+        let Some(useful) = [&idle, &attack]
+            .into_iter()
+            .flatten()
+            .filter_map(content_rect)
+            .reduce(|a, b| (a.0.min(b.0), a.1.min(b.1), a.2.max(b.2), a.3.max(b.3)))
+        else {
+            return Faces {
+                idle: None,
+                attack: None,
+            }; // ninguna de las dos cargo: queda el color plano
+        };
+        let cut = |image: Option<RgbaImage>| {
+            image.map(|image| Texture::from_image(crop(&image, useful), config::SPRITE_MAX_SIZE))
+        };
+
+        Faces {
+            idle: cut(idle),
+            attack: cut(attack),
+        }
+    }
+
+    /// La cara que toca, con la de siempre de respaldo por si esa entrada no
+    /// trae una para el salto.
+    fn face(&self, attacking: bool) -> Option<&Texture> {
+        if attacking {
+            return self.attack.as_ref().or(self.idle.as_ref());
+        }
+        self.idle.as_ref()
+    }
+}
+
 /// Todas las imagenes del juego cargadas en RAM: paredes, sprites de enemigos y
 /// la hoja de corazones del HUD.
 pub struct TextureManager {
     walls: HashMap<char, Wall>,
-    enemies: HashMap<char, Texture>,
+    enemies: HashMap<char, Faces>,
     items: HashMap<char, Texture>,
     hearts: Vec<Texture>,
     weapon: Vec<Texture>,
@@ -200,10 +240,7 @@ impl TextureManager {
 
         let enemies = config::ENEMY_TEXTURES
             .iter()
-            .filter_map(|&(cell, path)| {
-                let texture = Texture::load(path?, config::SPRITE_MAX_SIZE)?;
-                Some((cell, texture))
-            })
+            .map(|enemy| (enemy.cell, Faces::load(enemy)))
             .collect();
 
         let items = config::ITEM_TEXTURES
@@ -240,10 +277,10 @@ impl TextureManager {
         Some(wall.frame(self.clock)?.column(u, wall.tiles))
     }
 
-    /// Sprite del enemigo `kind`, o None si esa entrada no tiene textura y hay
-    /// que dibujarlo con ENEMY_COLOR.
-    pub fn enemy(&self, kind: char) -> Option<&Texture> {
-        self.enemies.get(&kind)
+    /// Sprite del enemigo `kind`, con la cara del salto mientras ataca. None si
+    /// esa entrada no tiene imagen y hay que dibujarlo con ENEMY_COLOR.
+    pub fn enemy(&self, kind: char, attacking: bool) -> Option<&Texture> {
+        self.enemies.get(&kind)?.face(attacking)
     }
 
     /// Sprite del objeto `kind`, o None si esa entrada todavía no tiene
@@ -267,12 +304,8 @@ impl TextureManager {
 /// load_frames no recorta nada: el cuadro de un video cubre su celda entera y
 /// recortarlo por alfa movería la imagen de un cuadro al siguiente.
 fn load_strip(path: &str, frames: usize, limit: u32) -> Vec<Texture> {
-    let sheet = match image::open(path) {
-        Ok(image) => image.to_rgba8(),
-        Err(e) => {
-            eprintln!("Error al cargar la textura {}: {}", path, e);
-            return Vec::new();
-        }
+    let Some(sheet) = open(path) else {
+        return Vec::new();
     };
 
     let frames = frames.max(1) as u32;
@@ -294,30 +327,68 @@ fn load_strip(path: &str, frames: usize, limit: u32) -> Vec<Texture> {
 /// todos al mismo rectangulo util —la union de lo que ocupa cada uno dentro de
 /// su celda— para que la animacion no salte de un cuadro al siguiente.
 fn load_frames(path: &str, frames: usize) -> Vec<Texture> {
-    let sheet = match image::open(path) {
-        Ok(image) => image.to_rgba8(),
-        Err(e) => {
-            eprintln!("Error al cargar la hoja {}: {}", path, e);
-            return Vec::new();
-        }
+    let Some(sheet) = open(path) else {
+        return Vec::new();
     };
 
     let cell = sheet.width() / frames.max(1) as u32;
     let Some(useful) = content_bounds(&sheet, cell, frames as u32) else {
         return Vec::new();
     };
-    let (left, top, width, height) = useful;
-
     (0..frames as u32)
         .map(|frame| {
-            let cut = imageops::crop_imm(&sheet, frame * cell + left, top, width, height);
-            Texture::from_image(cut.to_image(), config::SPRITE_MAX_SIZE)
+            // el mismo recorte corrido a la celda de cada cuadro
+            let (left, top, right, bottom) = useful;
+            let frame = (left + frame * cell, top, right + frame * cell, bottom);
+
+            Texture::from_image(crop(&sheet, frame), config::SPRITE_MAX_SIZE)
         })
         .collect()
 }
 
-/// Rectangulo, en coordenadas de celda, que cubre lo que hay dibujado en todos
-/// los cuadros de la hoja.
+/// Abre una imagen en RGBA sin tocarle el tamano, avisando si no esta.
+fn open(path: &str) -> Option<RgbaImage> {
+    match image::open(path) {
+        Ok(image) => Some(image.to_rgba8()),
+        Err(e) => {
+            eprintln!("Error al cargar la textura {}: {}", path, e);
+            None
+        }
+    }
+}
+
+/// Lo que la imagen tiene dibujado, como (izquierda, arriba, derecha, abajo)
+/// inclusive, o None si es toda transparente.
+fn content_rect(image: &RgbaImage) -> Option<(u32, u32, u32, u32)> {
+    let (mut left, mut top) = (u32::MAX, u32::MAX);
+    let (mut right, mut bottom) = (0u32, 0u32);
+
+    for (x, y, pixel) in image.enumerate_pixels() {
+        if pixel[3] <= config::SPRITE_ALPHA_CUTOFF {
+            continue;
+        }
+        left = left.min(x);
+        right = right.max(x);
+        top = top.min(y);
+        bottom = bottom.max(y);
+    }
+
+    (left <= right && top <= bottom).then_some((left, top, right, bottom))
+}
+
+/// Recorta la imagen a ese rectangulo. La esquina se acota a lo que la imagen
+/// tiene —crop_imm ya acota el resto— para que un recorte compartido sirva
+/// aunque las imagenes no midan lo mismo y nunca salga un recorte vacio.
+fn crop(image: &RgbaImage, rect: (u32, u32, u32, u32)) -> RgbaImage {
+    let (left, top, right, bottom) = rect;
+    let left = left.min(image.width().saturating_sub(1));
+    let top = top.min(image.height().saturating_sub(1));
+
+    imageops::crop_imm(image, left, top, right + 1 - left, bottom + 1 - top).to_image()
+}
+
+/// Lo mismo que content_rect pero para una hoja: el rectangulo, en coordenadas
+/// de celda, que cubre lo que hay dibujado en todos sus cuadros.
 fn content_bounds(sheet: &RgbaImage, cell: u32, frames: u32) -> Option<(u32, u32, u32, u32)> {
     let (mut left, mut top) = (u32::MAX, u32::MAX);
     let (mut right, mut bottom) = (0u32, 0u32);
@@ -335,10 +406,7 @@ fn content_bounds(sheet: &RgbaImage, cell: u32, frames: u32) -> Option<(u32, u32
         bottom = bottom.max(y);
     }
 
-    if left > right || top > bottom {
-        return None;
-    }
-    Some((left, top, right - left + 1, bottom - top + 1))
+    (left <= right && top <= bottom).then_some((left, top, right, bottom))
 }
 
 /// Parte fraccionaria. Las coordenadas nunca son negativas, así que basta floor.
@@ -362,6 +430,25 @@ fn wrap(index: i32, size: i32) -> i32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Las dos caras de un enemigo tienen que salir del mismo recorte: si una
+    /// quedara de otro tamano, el bicho cambiaria de forma al saltar.
+    #[test]
+    fn las_dos_caras_del_enemigo_miden_lo_mismo() {
+        for enemy in config::ENEMY_TEXTURES {
+            let faces = Faces::load(enemy);
+            let (Some(idle), Some(attack)) = (&faces.idle, &faces.attack) else {
+                continue; // esa entrada no declara las dos imagenes
+            };
+
+            assert_eq!(
+                (idle.width(), idle.height()),
+                (attack.width(), attack.height()),
+                "las caras de '{}' no salieron del mismo recorte",
+                enemy.cell
+            );
+        }
+    }
 
     /// El ancho de la hoja tiene que ser múltiplo exacto de los cuadros que
     /// declara la tabla. Si no coincide, load_strip parte por donde no va y la
