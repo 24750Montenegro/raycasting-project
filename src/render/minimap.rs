@@ -3,6 +3,7 @@ use crate::caster::cast_ray;
 use crate::config;
 use crate::enemy::Enemies;
 use crate::framebuffer::Framebuffer;
+use crate::items::Items;
 use crate::maze::{dimensions, is_solid, Maze};
 use crate::player::Player;
 use raylib::prelude::*;
@@ -44,6 +45,7 @@ pub fn render_minimap(
     maze: &Maze,
     player: &Player,
     enemies: &Enemies,
+    items: &Items,
     mode: MinimapMode,
     block_size: usize,
 ) {
@@ -52,8 +54,22 @@ pub fn render_minimap(
     draw_panel(framebuffer, &layout);
     draw_walls(framebuffer, maze, &layout);
     draw_rays(framebuffer, maze, player, &layout, block_size);
+    draw_items(framebuffer, items, &layout);
     draw_enemies(framebuffer, enemies, &layout);
     draw_player(framebuffer, player, &layout);
+}
+
+/// Lo que falta juntar y adónde hay que llevarlo: sin esto el minimapa no
+/// alcanza para decidir el recorrido.
+fn draw_items(framebuffer: &mut Framebuffer, items: &Items, layout: &Layout) {
+    let radius = (layout.cell * 0.16).max(2.0);
+
+    for &goal in items.goals() {
+        framebuffer.fill_circle(layout.to_screen(goal), radius * 1.6, config::GOAL_COLOR);
+    }
+    for item in items.loose() {
+        framebuffer.fill_circle(layout.to_screen(item.pos), radius, config::ITEM_COLOR);
+    }
 }
 
 fn draw_enemies(framebuffer: &mut Framebuffer, enemies: &Enemies, layout: &Layout) {

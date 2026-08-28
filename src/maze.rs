@@ -90,6 +90,22 @@ pub fn find_player_start(maze: &Maze, block_size: usize) -> Vector2 {
     cell_center(1, 1, block_size) // posición por defecto si no se encuentra 'p'
 }
 
+/// Centros de todas las celdas que valen `cell`. A diferencia de `take_spawns`
+/// no las toca: sirve para marcas que siguen siendo parte del laberinto, como
+/// el punto de entrega.
+pub fn find_cells(maze: &Maze, cell: char, block_size: usize) -> Vec<Vector2> {
+    let mut found = Vec::new();
+
+    for (row, cells) in maze.iter().enumerate() {
+        for (col, &current) in cells.iter().enumerate() {
+            if current == cell {
+                found.push(cell_center(col, row, block_size));
+            }
+        }
+    }
+    found
+}
+
 /// Saca del laberinto las celdas que aparecen en `spawns` y devuelve dónde
 /// estaban. Se vacían para que el raycaster no las vea nunca como pared: así el
 /// bucle caliente no tiene que saber nada de enemigos.

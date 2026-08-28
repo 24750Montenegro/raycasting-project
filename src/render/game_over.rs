@@ -1,14 +1,27 @@
+use super::font;
 use crate::config;
 use crate::framebuffer::Framebuffer;
+use crate::textures::Texture;
 use raylib::prelude::*;
 
-/// Cartel de game over sobre la escena congelada. El arte llega desde config
-/// como líneas de texto: cada carácter distinto de espacio se pinta como un
-/// bloque, así que se puede reescribir el dibujo sin tocar esto.
+/// Cartel sobre la escena congelada, con la leyenda de cómo seguir debajo. El
+/// arte llega desde config como líneas de texto: cada carácter distinto de
+/// espacio se pinta como un bloque, así que se puede reescribir el dibujo sin
+/// tocar esto. Lo usan el game over, el fin de nivel y el final de la partida.
 ///
 /// `gamepad` dice si hay un control conectado: la leyenda nombra el botón o la
 /// tecla según con qué se esté jugando.
-pub fn render_game_over(framebuffer: &mut Framebuffer, gamepad: bool) {
+///
+/// `left_behind` es cuántos objetos quedaron sin rescatar y con qué cara
+/// mostrarlos. Va al pie, y solo al terminar un nivel: entregar lo termina, así
+/// que lo que no se llevó a la meta se quedó ahí para siempre.
+pub fn render_banner(
+    framebuffer: &mut Framebuffer,
+    art: &[&str],
+    color: Color,
+    gamepad: bool,
+    left_behind: Option<(u32, &Texture)>,
+) {
     let width = framebuffer.width as f32;
     let height = framebuffer.height as f32;
 
@@ -20,17 +33,52 @@ pub fn render_game_over(framebuffer: &mut Framebuffer, gamepad: bool) {
         config::GAME_OVER_HINT
     };
 
-    let title = measure(config::GAME_OVER_ART, width, config::GAME_OVER_FILL);
+    let title = measure(art, width, config::GAME_OVER_FILL);
     let hint = measure(hint_art, width, config::GAME_OVER_HINT_FILL);
 
-    // los dos bloques se centran juntos, no cada uno por su lado
+    // todos los bloques se centran juntos, no cada uno por su lado
     let gap = height * config::GAME_OVER_GAP;
-    let total = title.height() + gap + hint.height();
+    let footer = left_behind.map_or(0.0, |_| gap + config::LEFT_BEHIND_SIZE);
+    let total = title.height() + gap + hint.height() + footer;
     let mut top = (height - total) / 2.0;
 
-    draw(framebuffer, config::GAME_OVER_ART, &title, width, top, config::GAME_OVER_COLOR);
+    draw(framebuffer, art, &title, width, top, color);
     top += title.height() + gap;
     draw(framebuffer, hint_art, &hint, width, top, config::GAME_OVER_HINT_COLOR);
+
+    if let Some((count, face)) = left_behind {
+        draw_left_behind(framebuffer, count, face, width, top + hint.height() + gap);
+    }
+}
+
+/// El pájaro triste con el número de los que se quedaron, centrados los dos
+/// como una sola pieza.
+fn draw_left_behind(
+    framebuffer: &mut Framebuffer,
+    count: u32,
+    face: &Texture,
+    screen_width: f32,
+    top: f32,
+) {
+    let block = config::LEFT_BEHIND_BLOCK;
+    let size = Vector2::new(
+        config::LEFT_BEHIND_SIZE * face.width() as f32 / face.height() as f32,
+        config::LEFT_BEHIND_SIZE,
+    );
+    let number = font::number_width(count, block);
+    let left = (screen_width - (size.x + config::LEFT_BEHIND_SPACING + number)) / 2.0;
+
+    super::blit(framebuffer, face, Vector2::new(left, top), size);
+    font::draw_number(
+        framebuffer,
+        count,
+        Vector2::new(
+            left + size.x + config::LEFT_BEHIND_SPACING,
+            top + (size.y - font::number_height(block)) / 2.0,
+        ),
+        block,
+        config::LEFT_BEHIND_COLOR,
+    );
 }
 
 /// Tamaño de bloque con el que un arte ocupa `fill` del ancho de la pantalla.
